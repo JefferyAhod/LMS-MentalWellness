@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { User } from "@/entities/User";
@@ -14,9 +14,7 @@ import {
   Clock, 
   Award, 
   TrendingUp, 
-  Play, 
-  Users, 
-  Star,
+  Play,
   Heart,
   GraduationCap
 } from "lucide-react";

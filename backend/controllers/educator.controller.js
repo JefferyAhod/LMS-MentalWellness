@@ -1,7 +1,8 @@
 import asyncHandler from "express-async-handler";
 import EducatorProfile from "../models/EducatorProfileModel.js";
 import Course from "../models/CourseModel.js";
-
+import Enrollment from "../models/EnrollmentModel.js"; 
+import Review from "../models/ReviewModel.js";
 // @desc    Get educator profile
 // @route   GET /api/educators/profile
 export const getEducatorProfile = asyncHandler(async (req, res) => {
@@ -109,4 +110,55 @@ export const getMyCourses = asyncHandler(async (req, res) => {
 export const requestApproval = asyncHandler(async (req, res) => {
   // Placeholder logic
   res.json({ message: "Your approval request has been submitted." });
+});
+
+// @desc    Get comprehensive analytics data for the authenticated educator
+// @route   GET /api/educators/analytics
+export const getEducatorAnalytics = asyncHandler(async (req, res) => {
+    // Verify user is authenticated and is an educator
+    if (!req.user || req.user.role !== 'educator') {
+        res.status(403); // Forbidden
+        throw new Error('Not authorized as an educator to access analytics');
+    }
+
+    const educatorId = req.user._id;
+
+    // Fetch the EducatorProfile document and POPULATE the 'user' field
+    const educatorProfile = await EducatorProfile.findOne({ user: educatorId })
+        .populate('user', 'name email role'); // Populate with relevant User fields
+
+    if (!educatorProfile) {
+        res.status(404);
+        throw new Error('Educator profile not found. Please ensure the educator has completed onboarding.');
+    }
+
+    // Fetch all courses created by this educator
+    const courses = await Course.find({ educator: educatorId });
+
+    // Calculate total course views by summing viewsCount from all courses
+    const totalCourseViews = courses.reduce((sum, course) => sum + (course.viewsCount || 0), 0);
+
+    const courseIds = courses.map(course => course._id);
+
+    // Fetch all enrollments for these courses
+    const enrollments = await Enrollment.find({ course: { $in: courseIds } })
+        .populate('course', 'title price category')
+        .populate('student', 'name email');
+
+    // Fetch all reviews for these courses
+    const reviews = await Review.find({ course: { $in: courseIds } })
+        .populate('course', 'title')
+        .populate('user', 'name email');
+
+    // Send all collected data in a single response
+    res.status(200).json({
+        educatorProfile: {
+            ...educatorProfile.toObject(), // Spread existing profile data
+            totalCourseViews: totalCourseViews // Add the new dynamic field
+        },
+        courses,
+        enrollments,
+        reviews,
+        message: 'Educator analytics data fetched successfully'
+    });
 });

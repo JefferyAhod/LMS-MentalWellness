@@ -6,6 +6,7 @@ import {
   forgotPassword,
   resetPassword,
 } from "../controllers/auth.controller.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const authRouter = express.Router();
 
@@ -24,4 +25,7 @@ authRouter.post("/forgot-password", forgotPassword);
 // @route   PUT /api/auth/reset-password/:resetToken
 authRouter.put("/reset-password/:resetToken", resetPassword);
 
+authRouter.get("/me", protect, (req, res) => {
+  res.status(200).json(req.user); // this returns the logged-in user
+});
 export default authRouter;
