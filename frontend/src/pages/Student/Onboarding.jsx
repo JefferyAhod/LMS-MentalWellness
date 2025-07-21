@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
+
 import {
   GraduationCap,
   Clock,
@@ -24,12 +26,9 @@ import {
   Target,
   Users,
   Sparkles,
-  BookOpenText,
-  Lightbulb,
-  Stars,
-  MapPin,
-  Goal,
 } from "lucide-react";
+
+import { completeStudentOnboarding } from "@/api/student";
 
 const steps = [
   { label: "Profile", icon: <GraduationCap className="w-5 h-5" /> },
@@ -52,53 +51,76 @@ const disciplines = [
   "Medicine",
 ];
 
-export default function LandingOnboarding() {
+export default function StudentOnboarding() {
   const [step, setStep] = useState(0);
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState({
+    university: "",
+    major: "",
+    semester: "",
+    studyStyle: "",
+    studyTime: "",
+    learningStyle: [],
+    goals: [],
+    discipline: [],
+  });
+
+  const navigate = useNavigate();
 
   const handleChange = (key, value) => {
-    setFormData((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleCheckboxChange = (key, value) => {
     setFormData((prev) => {
-      const current = new Set(prev[key] || []);
-      current.has(value) ? current.delete(value) : current.add(value);
-      return { ...prev, [key]: Array.from(current) };
+      const current = prev[key] || [];
+      if (current.includes(value)) {
+        return { ...prev, [key]: current.filter((item) => item !== value) };
+      } else {
+        return { ...prev, [key]: [...current, value] };
+      }
     });
   };
 
   const handleNext = () => step < steps.length - 1 && setStep(step + 1);
   const handlePrev = () => step > 0 && setStep(step - 1);
-  const handleSubmit = () => {
-    console.log("Form Data:", formData);
-    alert("Setup Complete! Redirecting...");
-  };
+
+const handleSubmit = async () => {
+  try {
+    await completeStudentOnboarding(formData);
+    toast.success("Onboarding completed!");
+    navigate("/dashboard");
+  } catch (error) {
+    const raw = error?.response?.data?.message || "Failed to complete onboarding";
+
+    if (raw.includes("StudentProfile validation failed")) {
+      const matches = raw.match(/`([^`]+)`/g);
+      const fields = matches?.map((field) => field.replace(/`/g, "")) || [];
+      toast.error(`Please fill all required fields: ${fields.join(", ")}`);
+    } else {
+      toast.error(raw);
+    }
+  }
+};
+
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-gray-50 to-gray-200 dark:from-gray-900 dark:to-gray-800 p-4">
-      <Card className="w-full max-w-3xl p-6 md:p-10 rounded-3xl shadow-2xl bg-white dark:bg-gray-900">
-        <CardHeader className="text-center space-y-2">
-          <div className="flex items-center justify-center mb-2">
-            <Sparkles className="h-8 w-8 text-indigo-500" />
+    <div className="min-h-screen flex items-center justify-center p-6 bg-gray-100 dark:bg-gray-900">
+      <Card className="w-full max-w-3xl p-8 rounded-xl shadow-lg bg-white dark:bg-gray-800">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Sparkles className="h-6 w-6 text-indigo-500" />
           </div>
-          <CardTitle className="text-3xl font-semibold text-gray-800 dark:text-white">
+          <CardTitle className="text-2xl font-bold">
             Let’s personalize your experience
           </CardTitle>
-          <p className="text-sm text-gray-500 dark:text-gray-300 max-w-xl mx-auto">
-            Answer a few quick questions so we can tailor your learning journey just for you.
-          </p>
         </CardHeader>
 
-        {/* Progress Bar */}
+        {/* Stepper / Numbered Progress Bar */}
         <div className="flex items-center justify-between mb-8 px-6 relative">
           {steps.map((s, index) => (
             <div key={s.label} className="flex flex-col items-center text-sm font-medium relative z-10">
               <div
-                className={`flex items-center justify-center w-9 h-9 rounded-full border-2 ${
+                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-bold ${
                   index === step
                     ? "bg-indigo-500 text-white border-indigo-500"
                     : index < step
@@ -125,16 +147,23 @@ export default function LandingOnboarding() {
           </div>
         </div>
 
-        <CardContent className="space-y-6 px-4 md:px-8">
+        <CardContent className="space-y-6">
           {step === 0 && (
             <>
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                <MapPin className="w-4 h-4 text-indigo-500" />
-                <span>Where and what are you studying?</span>
-              </div>
-              <Input placeholder="University Name" onChange={(e) => handleChange("university", e.target.value)} />
-              <Input placeholder="Major / Course of Study" onChange={(e) => handleChange("major", e.target.value)} />
-              <Select onValueChange={(val) => handleChange("semester", val)}>
+              <Input
+                placeholder="University"
+                value={formData.university}
+                onChange={(e) => handleChange("university", e.target.value)}
+              />
+              <Input
+                placeholder="Major / Course"
+                value={formData.major}
+                onChange={(e) => handleChange("major", e.target.value)}
+              />
+              <Select
+                value={formData.semester}
+                onValueChange={(val) => handleChange("semester", val)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select Semester" />
                 </SelectTrigger>
@@ -151,28 +180,31 @@ export default function LandingOnboarding() {
 
           {step === 1 && (
             <>
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                <Clock className="w-4 h-4 text-indigo-500" />
-                <span>How do you prefer to study and when?</span>
-              </div>
-              <Select onValueChange={(val) => handleChange("study_style", val)}>
+              <Select
+                value={formData.studyStyle}
+                onValueChange={(val) => handleChange("studyStyle", val)}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Study Style" />
                 </SelectTrigger>
                 <SelectContent>
                   {["individual", "group", "mixed"].map((val) => (
                     <SelectItem key={val} value={val}>
-                      {val.charAt(0).toUpperCase() + val.slice(1)}
+                      {val}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Select onValueChange={(val) => handleChange("study_time", val)}>
+
+              <Select
+                value={formData.studyTime}
+                onValueChange={(val) => handleChange("studyTime", val)}
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Most Productive Hours" />
+                  <SelectValue placeholder="Productive Time" />
                 </SelectTrigger>
                 <SelectContent>
-                  {["early_morning", "morning", "afternoon", "evening", "night", "late_night"].map((val) => (
+                  {["early_morning", "morning", "afternoon", "evening", "night"].map((val) => (
                     <SelectItem key={val} value={val}>
                       {val.replace("_", " ")}
                     </SelectItem>
@@ -184,21 +216,22 @@ export default function LandingOnboarding() {
 
           {step === 2 && (
             <>
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                <Lightbulb className="w-4 h-4 text-indigo-500" />
-                <span>Pick the styles that help you learn best</span>
-              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Learning styles</p>
               <div className="grid grid-cols-2 gap-3">
                 {["visual", "auditory", "reading", "kinesthetic"].map((style) => (
                   <label
                     key={style}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900 p-2 rounded-lg transition"
+                    className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-700 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900"
                   >
-                    <Checkbox
-                      checked={formData.learning_style?.includes(style)}
-                      onCheckedChange={() => handleCheckboxChange("learning_style", style)}
+                    <input
+                      type="checkbox"
+                      checked={formData.learningStyle?.includes(style)}
+                      onChange={() =>
+                        handleCheckboxChange("learningStyle", style)
+                      }
+                      className="form-checkbox text-indigo-600 w-5 h-5"
                     />
-                    {style.charAt(0).toUpperCase() + style.slice(1)}
+                    <span className="capitalize">{style}</span>
                   </label>
                 ))}
               </div>
@@ -207,21 +240,20 @@ export default function LandingOnboarding() {
 
           {step === 3 && (
             <>
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                <Goal className="w-4 h-4 text-indigo-500" />
-                <span>What are you hoping to achieve?</span>
-              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Your learning goals</p>
               <div className="grid grid-cols-2 gap-3">
                 {["grades", "understanding", "time_mgmt", "exam_prep"].map((goal) => (
                   <label
                     key={goal}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900 p-2 rounded-lg transition"
+                    className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-700 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900"
                   >
-                    <Checkbox
+                    <input
+                      type="checkbox"
                       checked={formData.goals?.includes(goal)}
-                      onCheckedChange={() => handleCheckboxChange("goals", goal)}
+                      onChange={() => handleCheckboxChange("goals", goal)}
+                      className="form-checkbox text-indigo-600 w-5 h-5"
                     />
-                    {goal.replace("_", " ")}
+                    <span className="capitalize">{goal.replace("_", " ")}</span>
                   </label>
                 ))}
               </div>
@@ -230,21 +262,20 @@ export default function LandingOnboarding() {
 
           {step === 4 && (
             <>
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                <BookOpenText className="w-4 h-4 text-indigo-500" />
-                <span>Select your academic discipline (optional)</span>
-              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Discipline</p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {disciplines.map((d) => (
                   <label
                     key={d}
-                    className="flex items-center gap-2 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900 p-2 rounded-lg transition"
+                    className="flex items-center gap-2 p-2 rounded-md border border-gray-300 dark:border-gray-700 cursor-pointer hover:bg-indigo-50 dark:hover:bg-indigo-900"
                   >
-                    <Checkbox
-                      checked={formData.discipline?.includes(d.toLowerCase())}
-                      onCheckedChange={() => handleCheckboxChange("discipline", d.toLowerCase())}
+                    <input
+                      type="checkbox"
+                      checked={formData.discipline?.includes(d)}
+                      onChange={() => handleCheckboxChange("discipline", d)}
+                      className="form-checkbox text-indigo-600 w-5 h-5"
                     />
-                    {d}
+                    <span>{d}</span>
                   </label>
                 ))}
               </div>

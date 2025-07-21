@@ -1,4 +1,17 @@
 import mongoose from "mongoose";
+// Define Lecture Schema (sub-document)
+const lectureSchema = mongoose.Schema({
+    title: { type: String, required: true },
+    video_url: { type: String, required: true },
+    duration: { type: Number, required: true, default: 0 }, 
+    is_preview_free: { type: Boolean, default: false }
+}, ); 
+
+// Define Chapter Schema (sub-document)
+const chapterSchema = mongoose.Schema({
+    title: { type: String, required: true },
+    lectures: [lectureSchema] 
+},); 
 
 const courseSchema = new mongoose.Schema(
   {
@@ -17,21 +30,64 @@ const courseSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    category: { type: String },
     subject: {
       type: String,
       required: true,
       trim: true,
     },
+    price: { 
+      type: Number,
+      required: true,
+      default: 0, // Set a default for free courses
+      min: 0,
+      max: 10000, 
+    },
+    level: { 
+      type: String,
+      enum: ['Beginner', 'Intermediate', 'Advanced'],
+      default: 'Beginner',
+    },
+    thumbnail: { 
+      type: String,
+      trim: true,
+      default: 'https://via.placeholder.com/400x200?text=Course+Thumbnail', // Placeholder image
+    },
+       chapters: [chapterSchema], 
+    duration: { 
+        type: Number,
+        default: 0
+    },
     tags: {
       type: [String],
       default: [],
     },
-    contentLinks: {
+    contentLinks: { 
       type: [String],
       default: [],
     },
+    status: {
+      type: String,
+      enum: ['Draft', 'Pending Review', 'Published', 'Archived'],
+      default: 'Draft',
+    },
+     ratingsAverage: {
+            type: Number,
+            default: 0,
+            min: [0, 'Rating must be above 0'],
+            max: [5, 'Rating must be below 5.0'],
+            set: val => Math.round(val * 10) / 10
+        },
+        ratingsQuantity: {
+            type: Number,
+            default: 0
+        },
+        viewsCount: {
+            type: Number,
+            default: 0,
+        }
   },
-  { timestamps: true }
+  { timestamps: true } 
 );
 
 const Course = mongoose.model("Course", courseSchema);

@@ -2,24 +2,25 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "@/context/AuthContext";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { FcGoogle } from "react-icons/fc";
-import { AtSign, Lock } from "lucide-react";
+import { AtSign, Lock, User, Users } from "lucide-react";
 
-export default function Login() {
-  const { login, loading, error } = useAuth();
-  const navigate = useNavigate();
-
+export default function Signup() {
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     password: "",
+    role: "",
   });
 
-  const [showError, setShowError] = useState(false);
+  const { register, loading, error } = useAuth();
+  const navigate = useNavigate();
+
+  const [showError, setShowError] = useState(true);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -31,12 +32,12 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.email || !formData.password) {
-      toast.error("Please enter both email and password");
+    if (!formData.name || !formData.email || !formData.password || !formData.role) {
+      toast.error("Please fill all fields");
       return;
     }
 
-    const result = await login(formData);
+    const result = await register(formData);
 
 if (result.success) {
   toast.success("Account created successfully!");
@@ -62,10 +63,10 @@ if (result.success) {
             className="w-16 h-16 rounded-full border p-1 bg-white"
           />
           <CardTitle className="text-2xl font-bold text-center">
-            Welcome to LectureMate
+            Create an account
           </CardTitle>
           <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-            Sign in to continue
+            Join LectureMate today
           </p>
         </CardHeader>
 
@@ -77,13 +78,29 @@ if (result.success) {
               className="w-full flex items-center gap-2 border-gray-300 dark:border-gray-700"
             >
               <FcGoogle size={20} />
-              Continue with Google
+              Sign up with Google
             </Button>
 
             <div className="flex items-center gap-4">
               <Separator className="flex-1" />
               <span className="text-sm text-gray-500 dark:text-gray-400">or</span>
               <Separator className="flex-1" />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Full Name
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 text-gray-400" size={16} />
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="John Doe"
+                  className="pl-10"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -119,6 +136,25 @@ if (result.success) {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <label htmlFor="role" className="text-sm font-medium">
+                Role
+              </label>
+              <div className="relative">
+                <Users className="absolute left-3 top-3 text-gray-400" size={16} />
+                <select
+                  id="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  className="pl-10 pr-4 py-2 border rounded-md w-full text-sm bg-white dark:bg-gray-900 dark:border-gray-700"
+                >
+                  <option value="">Select Role</option>
+                  <option value="student">Student</option>
+                  <option value="educator">Educator</option>
+                </select>
+              </div>
+            </div>
+
             {error && showError && (
               <div className="bg-red-100 text-red-700 text-sm rounded-md px-4 py-2 text-center border border-red-300">
                 {error}
@@ -130,15 +166,13 @@ if (result.success) {
               className="w-full mt-4 bg-gray-900 hover:bg-gray-800 text-white"
               disabled={loading}
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "Creating..." : "Create Account"}
             </Button>
 
-            <div className="flex justify-between text-sm text-gray-500 mt-4">
-              <a href="#" className="hover:underline">
-                Forgot password?
-              </a>
-              <a href="/signup" className="hover:underline">
-                Sign up
+            <div className="text-sm text-gray-500 mt-4 text-center">
+              Already have an account?{" "}
+              <a href="/login" className="hover:underline">
+                Sign in
               </a>
             </div>
           </CardContent>
