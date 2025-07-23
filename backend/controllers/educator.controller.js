@@ -3,6 +3,7 @@ import EducatorProfile from "../models/EducatorProfileModel.js";
 import Course from "../models/CourseModel.js";
 import Enrollment from "../models/EnrollmentModel.js"; 
 import Review from "../models/ReviewModel.js";
+import cloudinary from "../config/cloudinary.js";
 // @desc    Get educator profile
 // @route   GET /api/educators/profile
 export const getEducatorProfile = asyncHandler(async (req, res) => {
@@ -76,10 +77,61 @@ export const getTeachingTools = asyncHandler(async (req, res) => {
 // @desc    Create a course
 // @route   POST /api/educators/courses
 export const createCourse = asyncHandler(async (req, res) => {
+  const {
+    title,
+    description,
+    category,
+    subject,
+    level,
+    price,
+    chapters, 
+    tags,      
+    contentLinks, 
+    educator,
+    duration,
+    status,
+  } = req.body;
+
+  let thumbnailUrl = '';
+
+  // Check if a file was uploaded (handled by multer middleware)
+  if (req.file) {
+    try {
+      // Upload image to Cloudinary
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: 'course_thumbnails', 
+        resource_type: 'image',
+      });
+      thumbnailUrl = result.secure_url; 
+    } catch (uploadError) {
+      console.error("Cloudinary upload error:", uploadError);
+      res.status(500);
+      throw new Error("Failed to upload thumbnail to Cloudinary.");
+    }
+  }
+
+  // Parse JSON strings back to arrays/objects
+  const parsedChapters = chapters ? JSON.parse(chapters) : [];
+  const parsedTags = tags ? JSON.parse(tags) : [];
+  const parsedContentLinks = contentLinks ? JSON.parse(contentLinks) : [];
+
+
   const course = await Course.create({
-    educator: req.user._id,
-    ...req.body,
+    educator: req.user._id || educator, 
+    title,
+    description,
+    category,
+    subject,
+    level,
+    price,
+    thumbnail: thumbnailUrl, 
+    chapters: parsedChapters,
+    tags: parsedTags,
+    contentLinks: parsedContentLinks,
+    duration,
+    status,
   });
+
   res.status(201).json(course);
 });
 

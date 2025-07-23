@@ -8,7 +8,6 @@ import Login from "./pages/Login";
 import AIContentGenerator from "./pages/AIContentGenerator";
 import EducatorDashboard from "./pages/Educator/Dashboard";
 import CreateCourse from "./pages/Educator/CreateCourse";
-import PaymentPage from "./pages/Student/PaymentPage";
 import AdminPanel from "./pages/AdminPanel";
 import CourseDetail from "./pages/Student/CourseDetail";
 import EducatorOnboarding from "./pages/Educator/Onboarding";
@@ -25,12 +24,10 @@ function App() {
 
   useEffect(() => {
     fetchUser();
-    // Optionally, add logic to only fetch if a token exists
-    // Example: if (localStorage.getItem("token")) fetchUser();
   }, []); // Only run on mount
 
   if (userLoading) {
-    return <div>Loading user data...</div>; // Simple loading indicator
+    return <div>Loading user data...</div>; 
   }
 
   return (
@@ -45,10 +42,9 @@ function App() {
         <Route path='/Analytics' element={<Analytics />} />
         <Route path='/EducatorDashboard' element={<EducatorDashboard />} />
         <Route path='/CreateCourse' element={<CreateCourse />} />
-        <Route path='/PaymentPage' element={<PaymentPage />} />
         <Route path='/AdminPanel' element={<AdminPanel />} />
         <Route path='/CourseDetail' element={<CourseDetail />} />
-        <Route path='/CoursesPage' element={<CoursesPage />} />
+        <Route path='/Courses' element={<CoursesPage />} />
         <Route path="/StudentOnboarding" element={<StudentOnboarding />} />
         <Route path="/EducatorOnboarding" element={<EducatorOnboarding />} />
       </Routes>
