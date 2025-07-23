@@ -25,7 +25,7 @@ authRouter.post("/forgot-password", forgotPassword);
 // @route   PUT /api/auth/reset-password/:resetToken
 authRouter.put("/reset-password/:resetToken", resetPassword);
 
-authRouter.get("/me", protect, (req, res) => {
-  res.status(200).json(req.user); // this returns the logged-in user
+authRouter.get("/me", (req, res) => {
+  res.status(200).json(req.user);
 });
 export default authRouter;
