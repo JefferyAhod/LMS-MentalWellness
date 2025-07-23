@@ -137,7 +137,7 @@ export default function VideoPlayer({ video, onClose, onComplete, isCompleted })
             {/* Video Element */}
             <video
               ref={videoRef}
-              src={video.video_url || "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"}
+              src={video.videoUrl || "https://sample-videos.com/zip/10/mp4/SampleVideo_1280x720_1mb.mp4"}
               className="w-full aspect-video bg-black"
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
