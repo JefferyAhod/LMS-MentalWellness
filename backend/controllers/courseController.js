@@ -7,10 +7,10 @@ import Course from "../models/CourseModel.js"; // Assuming your Course model pat
 // @route   GET /api/courses
 // @access  Public (or Private if you want only logged-in users to browse)
 export const getAllCourses = asyncHandler(async (req, res) => {
-  const { category, search, page = 1, limit = 10 } = req.query; // Add page and limit for future pagination
+  const { category, search, page = 1, limit = 10 } = req.query;
 
   const query = {
-    is_published: true, // Only show published courses
+    status: "Published", // <--- CORRECTED: Filter by status 'Published'
   };
 
   // Filter by category
@@ -43,4 +43,18 @@ export const getAllCourses = asyncHandler(async (req, res) => {
     pages: Math.ceil(totalCourses / pageSize),
     totalCourses,
   });
+});
+
+// @desc    Get a single course by ID
+// @route   GET /api/courses/:id
+// @access  Public
+export const getCourseById = asyncHandler(async (req, res) => {
+  const course = await Course.findById(req.params.id);
+
+  if (course) {
+    res.json(course);
+  } else {
+    res.status(404);
+    throw new Error("Course not found");
+  }
 });
