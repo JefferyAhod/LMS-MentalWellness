@@ -46,7 +46,7 @@ export default function CreateCourse() {
         subject: "",
         level: "Beginner",
         price: 0,
-        thumbnail: "",
+        thumbnail: null,
         chapters: [], 
         tags: [],
         contentLinks: [],
@@ -57,6 +57,7 @@ export default function CreateCourse() {
 
 
     const [currentStep, setCurrentStep] = useState(1); // Form step indicator
+    const [thumbnailPreview, setThumbnailPreview] = useState(null);
 
     const steps = [
         { id: 1, name: "Basic Info", description: "Course details and settings" },
@@ -92,6 +93,18 @@ export default function CreateCourse() {
     // Handle changes for Select components
     const handleSelectChange = useCallback((name, value) => {
         setCourseData(prev => ({ ...prev, [name]: value }));
+    }, []);
+        // Handle thumbnail file input change
+    const handleThumbnailChange = useCallback((e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setCourseData(prev => ({ ...prev, thumbnail: file }));
+            // Create a preview URL for the selected image
+            setThumbnailPreview(URL.createObjectURL(file));
+        } else {
+            setCourseData(prev => ({ ...prev, thumbnail: null }));
+            setThumbnailPreview(null);
+        }
     }, []);
 
     // Handle tags input change
@@ -226,6 +239,11 @@ const handleContentLinksChange = useCallback((e) => {
                 toast.error('Please fill in all required basic course details correctly, including Subject and Category.');
                 return;
             }
+            // Add validation for thumbnail file
+            if (!courseData.thumbnail) {
+                toast.error('Please upload a course thumbnail image.');
+                return;
+            }
         }
 
         // Client-side validation for Step 2
@@ -259,32 +277,40 @@ const handleContentLinksChange = useCallback((e) => {
 
         if (!isAuthenticated || !user || !user._id) {
             toast.error("You must be logged in as a valid educator to create a course.");
-            navigate(createPageUrl("Login")); 
+            navigate(createPageUrl("Login"));
             return;
         }
-     
+
 
         try {
             const totalDuration = calculateTotalDuration();
 
             // Prepare the payload for the backend API call
-            const coursePayload = {
-                ...courseData,
-                educator: user._id, 
-                duration: totalDuration,
-                status: isDraft ? 'Draft' : 'Pending Review',
-            };
+            // When sending a file, you'll typically use FormData
+            const formData = new FormData();
+            for (const key in courseData) {
+                if (key === 'chapters' || key === 'tags' || key === 'contentLinks') {
+                    formData.append(key, JSON.stringify(courseData[key]));
+                } else {
+                    formData.append(key, courseData[key]);
+                }
+            }
+            formData.append('educator', user._id);
+            formData.append('duration', totalDuration);
+            formData.append('status', isDraft ? 'Draft' : 'Pending Review');
+
 
             // Call the useCreateCourse hook's function to send data to backend
-            const newCourse = await createCourse(coursePayload);
+            // The useCreateCourse hook will need to be updated to handle FormData
+            const newCourse = await createCourse(formData);
 
             if (newCourse) {
                 toast.success(`Course "${newCourse.title}" ${isDraft ? 'saved as draft' : 'submitted for review'}!`);
-                navigate(createPageUrl("EducatorDashboard")); 
+                navigate(createPageUrl("EducatorDashboard"));
             }
         } catch (error) {
             console.error("Error during course submission in component:", error);
-            if (!createError) { 
+            if (!createError) {
                 toast.error(error.message || "Failed to create course. Please try again.");
             }
         }
@@ -471,14 +497,14 @@ const handleContentLinksChange = useCallback((e) => {
                             {/* Course Thumbnail - Now a URL Text Input */}
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                    Course Thumbnail URL
+                                    Course Thumbnail
                                 </label>
                                 <div className="flex items-center gap-4">
                                     <div className="w-32 h-20 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600">
-                                        {courseData.thumbnail ? (
+                                       {thumbnailPreview ? (
                                             <img
-                                                src={courseData.thumbnail}
-                                                alt="Thumbnail"
+                                                src={thumbnailPreview}
+                                                alt="Thumbnail Preview"
                                                 className="w-full h-full object-cover rounded-lg"
                                             />
                                         ) : (
@@ -487,12 +513,11 @@ const handleContentLinksChange = useCallback((e) => {
                                     </div>
                                     <Input
                                         name="thumbnail"
-                                        type="url"
-                                        value={courseData.thumbnail}
-                                        onChange={handleChange}
-                                        placeholder="e.g., https://example.com/course-thumbnail.jpg"
+                                        type="file" // Changed to file type
+                                        accept="image/*" // Accept only image files
+                                        onChange={handleThumbnailChange} // New handler for file input
                                         className="flex-grow"
-                                        id="thumbnail-url-input"
+                                        id="thumbnail-file-input"
                                     />
                                 </div>
                             </div>
@@ -544,11 +569,11 @@ https://github.com/your-repo
 
 
                             <div className="flex justify-end">
-                                <Button
+                              <Button
                                     onClick={() => {
                                         // Re-run validation before proceeding to next step
-                                        if (!courseData.title.trim() || !courseData.description.trim() || !courseData.category.trim() || !courseData.subject.trim() || courseData.price === null || isNaN(courseData.price) || courseData.price < 0) {
-                                            toast.error('Please fill in all required basic course details correctly before proceeding.');
+                                        if (!courseData.title.trim() || !courseData.description.trim() || !courseData.category.trim() || !courseData.subject.trim() || courseData.price === null || isNaN(courseData.price) || courseData.price < 0 || !courseData.thumbnail) {
+                                            toast.error('Please fill in all required basic course details correctly, including Subject, Category, and upload a thumbnail.');
                                         } else {
                                             setCurrentStep(2);
                                         }

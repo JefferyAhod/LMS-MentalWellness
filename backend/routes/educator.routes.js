@@ -14,7 +14,7 @@ import {
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import multer from 'multer';
 const educatorRouter = express.Router();
-const upload = multer();
+import upload from "../middleware/uploadMiddleware.js"; 
 // All educator routes are protected and must have role = 'educator'
 educatorRouter.use(protect, authorizeRoles(["educator"]));
 
@@ -32,7 +32,7 @@ educatorRouter.post("/upload-sample", uploadSampleContent);
 educatorRouter.get("/tools", getTeachingTools);
 
 // Courses
-educatorRouter.post("/courses", createCourse);
+educatorRouter.post("/courses", upload.single('thumbnail'), createCourse);
 educatorRouter.put("/courses/:courseId", updateCourse);
 educatorRouter.get("/my-courses", getMyCourses);
 
