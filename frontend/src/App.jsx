@@ -8,15 +8,16 @@ import Login from "./pages/Login";
 import AIContentGenerator from "./pages/AIContentGenerator";
 import EducatorDashboard from "./pages/Educator/Dashboard";
 import CreateCourse from "./pages/Educator/CreateCourse";
-import PaymentPage from "./pages/PaymentPage";
+import PaymentPage from "./pages/Student/PaymentPage";
 import AdminPanel from "./pages/AdminPanel";
-import CourseDetail from "./pages/CourseDetail";
+import CourseDetail from "./pages/Student/CourseDetail";
 import EducatorOnboarding from "./pages/Educator/Onboarding";
 import Signup from "./pages/Signup";
 import StudentOnboarding from "./pages/Student/Onboarding";
 import { useAuth } from "./context/AuthContext";
 import useUser from "./hooks/useUser"; // <-- Import useUser
 import Analytics from "./pages/Educator/Analytics";
+import CoursesPage from "./pages/Student/CoursesPage";
 
 function App() {
   const { user } = useAuth(); // Get user from auth context
@@ -47,6 +48,7 @@ function App() {
         <Route path='/PaymentPage' element={<PaymentPage />} />
         <Route path='/AdminPanel' element={<AdminPanel />} />
         <Route path='/CourseDetail' element={<CourseDetail />} />
+        <Route path='/CoursesPage' element={<CoursesPage />} />
         <Route path="/StudentOnboarding" element={<StudentOnboarding />} />
         <Route path="/EducatorOnboarding" element={<EducatorOnboarding />} />
       </Routes>
