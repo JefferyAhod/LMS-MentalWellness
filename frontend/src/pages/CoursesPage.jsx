@@ -6,29 +6,31 @@ import { createPageUrl } from "@/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BookOpen, Search } from "lucide-react";
+import { BookOpen, Search, Loader2 } from "lucide-react"; // Added Loader2 for loading spinner
 
-import CourseCard from "../../components/CourseCard"; // Assuming CourseCard component exists
+import CourseCard from "../components/CourseCard";
+import { useFetchCourses } from '../hooks/useFetchCourses'; // Import the new hook
 
 export default function CoursesPage() {
-    const [courses, setCourses] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("all");
-    const [isLoading, setIsLoading] = useState(true);
 
-    // Define dummy data for courses directly in the component
-    const DUMMY_COURSES_DATA = [
-        { id: "course101", title: "Introduction to Python Programming", instructor_name: "Alice Smith", is_published: true, category: "programming", level: "Beginner", price: 49.99, thumbnail: "https://placehold.co/300x200/FF5733/FFFFFF?text=Python" },
-        { id: "course102", title: "Advanced JavaScript for Web Development", instructor_name: "Bob Johnson", is_published: true, category: "programming", level: "Intermediate", price: 79.99, thumbnail: "https://placehold.co/300x200/3498DB/FFFFFF?text=JavaScript" },
-        { id: "course103", title: "UI/UX Design Fundamentals", instructor_name: "Charlie Brown", is_published: true, category: "design", level: "Beginner", price: 59.99, thumbnail: "https://placehold.co/300x200/27AE60/FFFFFF?text=UI/UX" },
-        { id: "course104", title: "Digital Marketing Strategies 2024", instructor_name: "Diana Prince", is_published: true, category: "marketing", level: "Intermediate", price: 69.99, thumbnail: "https://placehold.co/300x200/8E44AD/FFFFFF?text=Marketing" },
-        { id: "course105", title: "Data Science with R", instructor_name: "Eve Adams", is_published: true, category: "data-science", level: "Advanced", price: 99.99, thumbnail: "https://placehold.co/300x200/F1C40F/000000?text=Data+Science" },
-        { id: "course106", title: "Photography: Mastering Your DSLR", instructor_name: "Frank White", is_published: true, category: "photography", level: "Beginner", price: 39.99, thumbnail: "https://placehold.co/300x200/E67E22/FFFFFF?text=Photography" },
-        { id: "course107", title: "Business Analytics with Excel", instructor_name: "Grace Lee", is_published: true, category: "business", level: "Intermediate", price: 65.00, thumbnail: "https://placehold.co/300x200/1ABC9C/FFFFFF?text=Business" },
-        { id: "course108", title: "Mobile App Design with Figma", instructor_name: "Henry Cavill", is_published: true, category: "design", level: "Intermediate", price: 75.00, thumbnail: "https://placehold.co/300x200/9B59B6/FFFFFF?text=Figma" },
-        { id: "course109", title: "SQL for Data Analysis", instructor_name: "Ivy Green", is_published: true, category: "data-science", level: "Beginner", price: 55.00, thumbnail: "https://placehold.co/300x200/34495E/FFFFFF?text=SQL" },
-        { id: "course110", title: "Content Marketing Masterclass", instructor_name: "Jack Black", is_published: true, category: "marketing", level: "Advanced", price: 85.00, thumbnail: "https://placehold.co/300x200/D35400/FFFFFF?text=Content+Marketing" },
-    ];
+    // Use the new custom hook to fetch courses
+    // The hook will manage the 'courses', 'isLoading', 'error', and 'pagination' states
+    const {
+        courses,
+        isLoading,
+        error,
+        pagination,
+        setParams // Function to update fetch parameters (search, category, page, limit)
+    } = useFetchCourses({
+        category: selectedCategory,
+        search: searchQuery,
+        page: 1, // Start on page 1 for initial load
+        limit: 9 // Adjust limit as needed for your grid layout (e.g., 9 courses per page)
+    });
+
+    // Removed DUMMY_COURSES_DATA as we are now fetching from the backend
 
     const categoriesList = [
         { id: "all", name: "All Categories" },
@@ -38,33 +40,30 @@ export default function CoursesPage() {
         { id: "marketing", name: "Marketing" },
         { id: "data-science", name: "Data Science" },
         { id: "photography", name: "Photography" },
-        // Add more categories as needed
+        { id: "music", name: "Music" },
+        { id: "language", name: "Language" },
+        { id: "health", name: "Health & Fitness" },
+        { id: "other", name: "Other" }
     ];
 
+    // Effect to update fetch parameters when search query or selected category changes
+    // This will trigger a re-fetch of courses from the backend
     useEffect(() => {
-        // Simulate data loading delay
-        const timer = setTimeout(() => {
-            setCourses(DUMMY_COURSES_DATA);
-            setIsLoading(false);
-        }, 800); // Simulate 800ms loading time
+        // Reset to page 1 whenever search or category filters change
+        setParams({ category: selectedCategory, search: searchQuery, page: 1 });
+    }, [selectedCategory, searchQuery, setParams]);
 
-        return () => clearTimeout(timer);
-    }, []);
+    const handleCategoryClick = (categoryId) => {
+        setSelectedCategory(categoryId);
+    };
 
-    const filteredCourses = courses.filter((course) => {
-        const matchesSearch =
-            (course.title || "")
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase()) ||
-            (course.instructor_name || "")
-                .toLowerCase()
-                .includes(searchQuery.toLowerCase());
+    const handleSearchChange = (e) => {
+        setSearchQuery(e.target.value);
+    };
 
-        const matchesCategory =
-            selectedCategory === "all" || course.category.toLowerCase() === selectedCategory.toLowerCase();
-
-        return matchesSearch && matchesCategory;
-    });
+    // The filtering logic (filteredCourses) is now handled by the backend's getAllCourses controller
+    // based on the `searchQuery` and `selectedCategory` parameters passed to `useFetchCourses`.
+    // So, we no longer need the client-side `filteredCourses` state or its filter logic.
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 py-12">
@@ -84,7 +83,7 @@ export default function CoursesPage() {
                     <Input
                         placeholder="Search for courses or instructors..."
                         value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onChange={handleSearchChange}
                         className="pl-12 pr-4 py-3 text-lg border-2 border-gray-200 dark:border-gray-700 rounded-2xl focus:border-blue-500 dark:focus:border-blue-400 bg-white dark:bg-gray-800"
                     />
                 </div>
@@ -97,7 +96,7 @@ export default function CoursesPage() {
                             variant={
                                 selectedCategory === category.id ? "default" : "outline"
                             }
-                            onClick={() => setSelectedCategory(category.id)}
+                            onClick={() => handleCategoryClick(category.id)}
                             className="rounded-full px-6 py-2 text-sm font-medium transition-all hover:scale-105"
                         >
                             {category.name}
@@ -113,12 +112,14 @@ export default function CoursesPage() {
                                 ? "All Courses"
                                 : categoriesList.find((c) => c.id === selectedCategory)?.name + " Courses"}
                         </h3>
+                        {/* Display totalCourses from pagination metadata */}
                         <p className="text-gray-600 dark:text-gray-400">
-                            {filteredCourses.length} courses found
+                            {pagination.totalCourses} courses found
                         </p>
                     </div>
 
                     {isLoading ? (
+                        // Show skeleton loaders while loading
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {[1, 2, 3, 4, 5, 6].map((i) => (
                                 <div key={i} className="animate-pulse">
@@ -128,15 +129,26 @@ export default function CoursesPage() {
                                 </div>
                             ))}
                         </div>
-                    ) : filteredCourses.length > 0 ? (
+                    ) : error ? (
+                        // Show error message if fetch fails
+                        <div className="text-center py-16 text-red-500">
+                            <BookOpen className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                            <h3 className="text-xl font-semibold mb-2">
+                                Error loading courses.
+                            </h3>
+                            <p>Please try again later. {error.message}</p>
+                        </div>
+                    ) : courses.length > 0 ? (
+                        // Display courses if found
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                            {filteredCourses.map((course) => (
+                            {courses.map((course) => (
                                 <Link key={course.id} to={createPageUrl("CourseDetail", { id: course.id })}>
                                     <CourseCard course={course} />
                                 </Link>
                             ))}
                         </div>
                     ) : (
+                        // Display "No courses found" if no courses match criteria
                         <div className="text-center py-16">
                             <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -148,6 +160,29 @@ export default function CoursesPage() {
                         </div>
                     )}
                 </div>
+
+                {/* Optional: Add Pagination Controls Here */}
+                {/* You can use pagination.page, pagination.pages, and setParams({ page: newPage }) */}
+                {/* For example: */}
+                {/* {pagination.pages > 1 && (
+                    <div className="flex justify-center mt-8 space-x-2">
+                        <Button
+                            onClick={() => setParams(prev => ({ ...prev, page: prev.page - 1 }))}
+                            disabled={pagination.page === 1}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-gray-700 dark:text-gray-300">
+                            Page {pagination.page} of {pagination.pages}
+                        </span>
+                        <Button
+                            onClick={() => setParams(prev => ({ ...prev, page: prev.page + 1 }))}
+                            disabled={pagination.page === pagination.pages}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )} */}
             </div>
         </div>
     );

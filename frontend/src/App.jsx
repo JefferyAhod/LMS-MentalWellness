@@ -16,7 +16,7 @@ import StudentOnboarding from "./pages/Student/Onboarding";
 import { useAuth } from "./context/AuthContext";
 import useUser from "./hooks/useUser"; // <-- Import useUser
 import Analytics from "./pages/Educator/Analytics";
-import CoursesPage from "./pages/Student/CoursesPage";
+import CoursesPage from "./pages/CoursesPage";
 
 function App() {
   const { user } = useAuth(); // Get user from auth context
