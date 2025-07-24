@@ -58,3 +58,36 @@ export const getCourseById = asyncHandler(async (req, res) => {
     throw new Error("Course not found");
   }
 });
+
+// @desc    Get featured courses
+// @route   GET /api/courses/featured
+// @access  Public
+export const getFeaturedCourses = asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 3; // Default to 3 featured courses
+
+  const featuredCourses = await Course.find({
+    status: "Published",
+    is_featured: true,
+  })
+    .sort({ created_date: -1 }) // Or by a 'featured_order' field if you have one
+    .limit(limit);
+
+  res.status(200).json(featuredCourses);
+});
+
+// @desc    Get recommended courses (simple implementation for now)
+// @route   GET /api/courses/recommended
+// @access  Public (can be private later for personalized recommendations)
+export const getRecommendedCourses = asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit, 10) || 3;
+
+  // For a simple recommendation, let's just get the top 3 most enrolled courses
+  // In a real app, this would involve more complex logic (e.g., user's interests, past behavior)
+  const recommendedCourses = await Course.find({
+    status: "Published",
+  })
+    .sort({ total_enrollments: -1, average_rating: -1 }) // Sort by enrollments, then rating
+    .limit(limit);
+
+  res.status(200).json(recommendedCourses);
+});

@@ -29,3 +29,24 @@ export const getCourseById = async (courseId) => {
         throw error;
     }
 };
+
+
+export const getFeaturedCourses = async (limit = 3) => {
+    try {
+        const res = await API.get(`/courses/featured?limit=${limit}`);
+        return res.data; 
+    } catch (error) {
+        console.error("Error fetching featured courses:", error.response?.data?.message || error.message);
+        throw error;
+    }
+};
+
+export const getRecommendedCourses = async (limit = 3) => {
+    try {
+        const res = await API.get(`/courses/recommended?limit=${limit}`);
+        return res.data; 
+    } catch (error) {
+        console.error("Error fetching recommended courses:", error.response?.data?.message || error.message);
+        throw error;
+    }
+};

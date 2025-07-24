@@ -71,6 +71,10 @@ const courseSchema = new mongoose.Schema(
       enum: ['Draft', 'Pending Review', 'Published', 'Archived'],
       default: 'Draft',
     },
+    is_featured: {
+      type: Boolean,
+      default: false,
+    },
      ratingsAverage: {
             type: Number,
             default: 0,
