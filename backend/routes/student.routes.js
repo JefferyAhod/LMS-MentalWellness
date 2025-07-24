@@ -6,6 +6,7 @@ import {
   getStudentCourses,
   enrollInCourse,
   getLearningProgress,
+  markLectureComplete,
 } from "../controllers/student.controller.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 
@@ -32,5 +33,9 @@ studentRouter.post("/enroll/:courseId", enrollInCourse);
 
 // @route   GET /api/students/progress/:courseId
 studentRouter.get("/progress/:courseId", getLearningProgress);
+
+// @route   PUT /api/students/enrollments/:enrollmentId/complete-lecture
+studentRouter.route("/enrollments/:enrollmentId/complete-lecture").put(protect, markLectureComplete);
+
 
 export default studentRouter;

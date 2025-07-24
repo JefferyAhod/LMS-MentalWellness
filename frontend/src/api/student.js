@@ -26,7 +26,12 @@ export const getStudentCourses = async () => {
   return res.data;
 };
 
-export const getLearningProgress = async () => {
-  const res = await API.get("/student/progress");
+export const getLearningProgress = async (courseId) => {
+  const res = await API.get(`/student/progress/${courseId}`);
   return res.data;
+};
+
+export const markLectureComplete = async (enrollmentId, lectureId) => {
+        const res = await API.put(`/student/enrollments/${enrollmentId}/complete-lecture`, { lectureId });
+        return res.data;
 };

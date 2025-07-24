@@ -9,6 +9,7 @@ import authRouter from './routes/auth.routes.js';
 import studentRouter from './routes/student.routes.js';
 import adminRouter from './routes/admin.routes.js';
 import coursesRouter from './routes/courses.routes.js';
+import reviewRouter from './routes/reviews.routes.js';
 
 dotenv.config();
 const port = process.env.PORT || 5000;
@@ -33,6 +34,8 @@ const app = express();
  app.use('/api/student', studentRouter);
  app.use("/api/educator", educatorRouter);
  app.use("/api/courses", coursesRouter);
+ app.use("/api/reviews", reviewRouter); 
+
 
 
 app.use(notFound);

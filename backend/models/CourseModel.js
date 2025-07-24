@@ -75,6 +75,10 @@ const courseSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    total_enrollments: { 
+            type: Number,
+            default: 0,
+        },
      ratingsAverage: {
             type: Number,
             default: 0,

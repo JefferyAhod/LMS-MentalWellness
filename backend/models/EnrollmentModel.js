@@ -18,6 +18,15 @@ const enrollmentSchema = new mongoose.Schema(
       min: 0,
       max: 100,
     },
+        completedLectures: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+      }
+    ],
+        isCompleted: {
+      type: Boolean,
+      default: false,
+    },
     enrolledAt: {
       type: Date,
       default: Date.now,
