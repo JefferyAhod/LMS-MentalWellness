@@ -80,14 +80,11 @@ export const getFeaturedCourses = asyncHandler(async (req, res) => {
 // @access  Public (can be private later for personalized recommendations)
 export const getRecommendedCourses = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit, 10) || 3;
-
-  // For a simple recommendation, let's just get the top 3 most enrolled courses
-  // In a real app, this would involve more complex logic (e.g., user's interests, past behavior)
   const recommendedCourses = await Course.find({
     status: "Published",
   })
-    .sort({ total_enrollments: -1, average_rating: -1 }) // Sort by enrollments, then rating
+    // CHANGED: Use ratingsAverage to match your schema
+    .sort({ total_enrollments: -1, ratingsAverage: -1 })
     .limit(limit);
-
   res.status(200).json(recommendedCourses);
 });

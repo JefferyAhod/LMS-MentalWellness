@@ -106,15 +106,80 @@ export const enrollInCourse = asyncHandler(async (req, res) => {
 // @access  Private
 export const getLearningProgress = asyncHandler(async (req, res) => {
   const { courseId } = req.params;
-  const progress = await Enrollment.findOne({
+  const enrollment = await Enrollment.findOne({
     student: req.user._id,
     course: courseId,
-  }).select("progress");
+  }).select("progress completedLectures isCompleted"); // Select new fields
 
-  if (!progress) {
+  if (!enrollment) {
     res.status(404);
-    throw new Error("Enrollment not found");
+    throw new Error("Enrollment not found for this course and user.");
   }
 
-  res.status(200).json(progress);
+  res.status(200).json(enrollment);
+});
+
+// @desc    Mark a lecture as complete and update course progress
+// @route   PUT /api/students/enrollments/:enrollmentId/complete-lecture
+// @access  Private
+export const markLectureComplete = asyncHandler(async (req, res) => {
+  const { enrollmentId } = req.params;
+  const { lectureId } = req.body; // The ID of the lecture to mark complete
+
+  if (!lectureId) {
+    res.status(400);
+    throw new Error("Lecture ID is required to mark complete.");
+  }
+
+  const enrollment = await Enrollment.findById(enrollmentId);
+
+  if (!enrollment) {
+    res.status(404);
+    throw new Error("Enrollment not found.");
+  }
+
+  // Ensure the logged-in user owns this enrollment
+  if (enrollment.student.toString() !== req.user._id.toString()) {
+    res.status(401);
+    throw new Error("Not authorized to update this enrollment.");
+  }
+
+  // Check if lecture is already completed
+  if (enrollment.completedLectures.includes(lectureId)) {
+    res.status(400);
+    throw new Error("Lecture already marked complete.");
+  }
+
+  // Add lectureId to completedLectures array
+  enrollment.completedLectures.push(lectureId);
+
+  // --- Calculate new progress percentage ---
+  // To do this accurately, we need the total number of lectures in the course.
+  // This requires fetching the associated course.
+  const course = await Course.findById(enrollment.course);
+
+  if (!course) {
+    res.status(404);
+    throw new Error("Associated course not found for enrollment.");
+  }
+
+  let totalLectures = 0;
+  course.chapters.forEach(chapter => {
+    totalLectures += chapter.lectures.length;
+  });
+
+  if (totalLectures === 0) {
+    enrollment.progress = 0; // Avoid division by zero
+  } else {
+    enrollment.progress = (enrollment.completedLectures.length / totalLectures) * 100;
+  }
+
+  // Mark course as completed if all lectures are done
+  if (enrollment.completedLectures.length === totalLectures && totalLectures > 0) {
+    enrollment.isCompleted = true;
+  }
+
+  await enrollment.save();
+
+  res.status(200).json(enrollment); // Return the updated enrollment object
 });
