@@ -142,7 +142,7 @@ export default function CoursesPage() {
                         // Display courses if found
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {courses.map((course) => (
-                                <Link key={course.id} to={createPageUrl("CourseDetail", { id: course.id })}>
+                                <Link key={course._id} to={createPageUrl("CourseDetail", { id: course._id })}>
                                     <CourseCard course={course} />
                                 </Link>
                             ))}

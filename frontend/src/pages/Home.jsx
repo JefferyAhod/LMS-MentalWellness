@@ -10,28 +10,19 @@ import CourseCard from "../components/CourseCard";
 import HeroSection from "../components/HeroSection";
 import StatsSection from "../components/StatsSection";
 
-// Import the necessary hooks for fetching courses
-import { useFetchCourses } from '../hooks/useFetchCourses'; // For the underlying data if needed for search later, but not for direct listing
-// Removed useFetchFeaturedCourses as per request
-import { useFetchRecommendedCourses } from '../hooks/useFetchRecommendedCourses'; // For "Recommended Courses" section
-import useUser from "../hooks/useUser"; // Assuming useUser is for current logged-in user
+import { useFetchCourses } from '../hooks/useFetchCourses';
+import { useFetchRecommendedCourses } from '../hooks/useFetchRecommendedCourses';
+import useUser from "../hooks/useUser";
 
 export default function Home() {
     const navigate = useNavigate();
-
-    // Use useUser hook for user data
     const { user, loading: userLoading, error: userError } = useUser();
 
-    // States for search and category filtering (still needed for the search bar functionality,
-    // but the 'All Courses' section will now be a button)
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("all");
 
-    // We keep useFetchCourses for the main search bar functionality,
-    // even if we don't display all courses directly.
-    // This allows the search bar to potentially pre-filter results for the "Browse All Courses" button.
     const {
-        courses, // This will hold the filtered courses if search/category is applied
+        courses,
         isLoading: allCoursesLoading,
         error: allCoursesError,
         pagination: allCoursesPagination,
@@ -40,15 +31,14 @@ export default function Home() {
         category: selectedCategory,
         search: searchQuery,
         page: 1,
-        limit: 6 // This limit is less relevant now as we won't list them directly
+        limit: 6
     });
 
-    // Use useFetchRecommendedCourses for the "Recommended Courses" section
     const {
         recommendedCourses,
         isLoading: recommendedCoursesLoading,
         error: recommendedCoursesError
-    } = useFetchRecommendedCourses(3); // Fetch 3 recommended courses
+    } = useFetchRecommendedCourses(3);
 
     const categories = [
         { id: "all", name: "All Courses" },
@@ -64,20 +54,16 @@ export default function Home() {
         { id: "other", name: "Other" }
     ];
 
-    // Effect to update parameters for 'All Courses' fetch when search/category changes
-    // This is still useful if the "Browse All Courses" button should carry these filters.
     useEffect(() => {
         setAllCoursesParams({ category: selectedCategory, search: searchQuery, page: 1 });
     }, [selectedCategory, searchQuery, setAllCoursesParams]);
 
-    // Redirects to login page - used by HeroSection
     const handleLoginRedirect = () => {
         navigate(createPageUrl("Login"));
     };
 
-    // Determine overall loading state for the page sections
-    const overallLoading = userLoading || recommendedCoursesLoading; // Removed featuredCoursesLoading
-    const overallError = userError || recommendedCoursesError; // Removed featuredCoursesError
+    const overallLoading = userLoading || recommendedCoursesLoading;
+    const overallError = userError || recommendedCoursesError;
 
     if (overallLoading) {
         return (
@@ -107,7 +93,7 @@ export default function Home() {
             {/* Stats Section */}
             <StatsSection />
 
-            {/* Search and Filter Section - Remains for initial user input */}
+            {/* Search and Filter Section */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
                 <div className="text-center mb-8">
                     <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
@@ -145,8 +131,6 @@ export default function Home() {
                     ))}
                 </div>
 
-                {/* Removed Featured Courses Section */}
-
                 {/* Recommended Courses Section */}
                 {recommendedCourses.length > 0 && (
                     <div className="mb-16">
@@ -157,14 +141,13 @@ export default function Home() {
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
                                 Recommended for You
                             </h3>
-                            {/* Link to CoursesPage, potentially with recommended filter */}
-                            <Link to={createPageUrl("Courses", { category: 'recommended' })} className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                            <Link to={createPageUrl("CoursesPage", { category: 'recommended' })} className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm">
                                 View All
                             </Link>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {recommendedCourses.map((course) => (
-                                <Link key={course.id} to={createPageUrl("CourseDetail", { id: course.id })}>
+                                <Link key={course._id} to={createPageUrl("CourseDetail", { id: course._id })}>
                                     <CourseCard course={course} />
                                 </Link>
                             ))}
@@ -180,7 +163,7 @@ export default function Home() {
                     <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto mb-6">
                         Find exactly what you're looking for across all categories and subjects.
                     </p>
-                    <Link to={createPageUrl("Courses")}>
+                    <Link to={createPageUrl("CoursesPage")}>
                         <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
                             <BookOpen className="w-5 h-5 mr-2" />
                             Browse All Courses

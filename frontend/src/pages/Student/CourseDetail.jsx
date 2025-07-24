@@ -24,7 +24,7 @@ import {
     ArrowLeft,
     Heart,
     Share2,
-    Loader2 // Spinner icon for loading states
+    Loader2 // Added Loader2 for loading spinner
 } from "lucide-react";
 
 // Custom Components
@@ -46,31 +46,30 @@ export default function CourseDetail() {
     // Get user authentication status from AuthContext
     const { user, isAuthenticated, loading: authLoading } = useAuth();
 
-    // Hook to fetch the specific course details
+    // Conditionally call hooks only if courseId is available
+    // The hooks themselves also have internal checks for courseId, but this prevents
+    // them from even starting if the ID is missing from the URL.
     const {
         course,
         isLoading: isCourseLoading,
         error: courseError,
-        refetchCourse // Function to manually refetch course details if needed
+        refetchCourse
     } = useFetchCourseDetail(courseId);
 
-    // Hook to manage student's enrollment and progress for this course
     const {
-        enrollment,         // The full enrollment object if the user is enrolled
-        completedLectures,  // Array of IDs of lectures completed by the user
-        progressPercentage, // Calculated progress (0-100%)
-        isCourseCompleted,  // Boolean flag if the course is fully completed
-        isLoadingProgress,  // Loading state for progress-related actions
-        error: progressError, // Error related to progress/enrollment
-        enroll,             // Function to enroll in the course
-        markLectureAsComplete, // Function to mark a lecture complete
-        isLectureCompleted, // Helper function to check if a specific lecture is complete
-        refetchProgress     // Function to manually refetch enrollment/progress
+        enrollment,
+        completedLectures,
+        progressPercentage,
+        isCourseCompleted,
+        isLoadingProgress,
+        error: progressError,
+        enroll,
+        markLectureAsComplete,
+        isLectureCompleted,
+        refetchProgress
     } = useCourseProgress(courseId);
 
-    // State for controlling the video player modal
     const [currentVideo, setCurrentVideo] = useState(null);
-    // State for controlling the certificate modal
     const [showCertificate, setShowCertificate] = useState(false);
 
     // Calculate total number of lectures in the course for progress calculation
@@ -80,27 +79,19 @@ export default function CourseDetail() {
 
     // Handles the "Enroll Now" button click
     const handleEnroll = async () => {
-        // The 'enroll' function from useCourseProgress already handles authentication and toasts.
         await enroll();
-        // Optionally, refetch course details here if enrollment count needs to update immediately on UI
-        // refetchCourse();
     };
 
     // Handles marking a lecture as complete (called from VideoPlayer)
     const handleLectureComplete = async (lectureId) => {
-        // The 'markLectureAsComplete' function from useCourseProgress handles logic and toasts.
         await markLectureAsComplete(lectureId, totalLecturesInCourse);
-        // The useCourseProgress hook will update its internal state,
-        // which will re-render this component with updated progress.
     };
 
     // Handles playing a lecture video
     const handlePlayLecture = (lecture) => {
-        // Allow playing if enrolled OR if the lecture is a free preview
         if (enrollment || lecture.is_preview_free) {
             setCurrentVideo(lecture);
         } else {
-            // Provide feedback if not enrolled and not a free preview
             toast.error("Please enroll in the course to access this lecture.");
         }
     };
@@ -118,8 +109,26 @@ export default function CourseDetail() {
 
     // Determine overall loading state for the entire page
     const overallLoading = isCourseLoading || isLoadingProgress || authLoading;
-    // Combine errors from different hooks
     const overallError = courseError || progressError;
+
+    // First, check if courseId is missing from the URL
+    if (!courseId) {
+        return (
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+                <div className="text-center">
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+                        Course ID is missing from URL.
+                    </h2>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        Please ensure you navigate to this page with a valid course ID in the URL (e.g., /CourseDetail?id=YOUR_COURSE_ID).
+                    </p>
+                    <Link to={createPageUrl("CoursesPage")}>
+                        <Button>Back to Courses</Button>
+                    </Link>
+                </div>
+            </div>
+        );
+    }
 
     // Show a full-page spinner while any data is loading
     if (overallLoading) {
@@ -130,7 +139,7 @@ export default function CourseDetail() {
         );
     }
 
-    // Show an error message if there's an overall error or course data is missing after loading
+    // Handle case where course data is not found or there's an error after loading
     if (overallError || !course) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -138,7 +147,7 @@ export default function CourseDetail() {
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                         {overallError ? `Error: ${overallError.message}` : "Course not found"}
                     </h2>
-                    <Link to={createPageUrl("CoursesPage")}> {/* Link back to the main courses page */}
+                    <Link to={createPageUrl("CoursesPage")}>
                         <Button>Back to Courses</Button>
                     </Link>
                 </div>
@@ -154,7 +163,7 @@ export default function CourseDetail() {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <Button
                         variant="ghost"
-                        onClick={() => navigate(-1)} // Go back to the previous page
+                        onClick={() => navigate(-1)}
                         className="mb-4"
                     >
                         <ArrowLeft className="w-4 h-4 mr-2" />
@@ -208,12 +217,11 @@ export default function CourseDetail() {
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <Star className="w-4 h-4 text-yellow-500" />
-                                        {course.ratingsAverage || 0} rating {/* Using ratingsAverage from Course model */}
+                                        {course.ratingsAverage || 0} rating
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Student Progress Bar (only if enrolled) */}
                             {enrollment && (
                                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
                                     <div className="flex items-center justify-between mb-2">
@@ -299,7 +307,7 @@ export default function CourseDetail() {
                                             <Button
                                                 className="w-full"
                                                 onClick={handleEnroll}
-                                                disabled={isLoadingProgress || !isAuthenticated} // Disable while enrolling or if not logged in
+                                                disabled={isLoadingProgress || !isAuthenticated}
                                             >
                                                 <BookOpen className="w-4 h-4 mr-2" />
                                                 {isLoadingProgress ? 'Enrolling...' : (course.price === 0 ? 'Enroll Free' : 'Enroll Now')}
@@ -323,10 +331,10 @@ export default function CourseDetail() {
                     video={currentVideo}
                     onClose={() => {
                         setCurrentVideo(null);
-                        refetchProgress(); // Refetch progress when video player closes to update UI
+                        refetchProgress();
                     }}
-                    onComplete={() => handleLectureComplete(currentVideo._id)} // Pass lecture's _id
-                    isCompleted={isLectureCompleted(currentVideo._id)} // Check completion status via hook
+                    onComplete={() => handleLectureComplete(currentVideo._id)}
+                    isCompleted={isLectureCompleted(currentVideo._id)}
                 />
             )}
 
@@ -342,7 +350,7 @@ export default function CourseDetail() {
                             <CardContent>
                                 <div className="space-y-4">
                                     {course.chapters?.map((chapter) => (
-                                        <div key={chapter._id} className="border rounded-lg overflow-hidden"> {/* Use chapter._id for key */}
+                                        <div key={chapter._id} className="border rounded-lg overflow-hidden">
                                             <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3">
                                                 <h3 className="font-semibold text-gray-900 dark:text-white">
                                                     {chapter.title}
@@ -351,7 +359,7 @@ export default function CourseDetail() {
                                             <div className="divide-y divide-gray-200 dark:divide-gray-700">
                                                 {chapter.lectures?.map((lecture) => (
                                                     <div
-                                                        key={lecture._id} // Use lecture._id for key
+                                                        key={lecture._id}
                                                         className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
                                                         onClick={() => handlePlayLecture(lecture)}
                                                     >
@@ -389,10 +397,9 @@ export default function CourseDetail() {
                         </Card>
 
                         {/* Reviews Section */}
-                        {/* Note: ReviewSection needs its own logic to fetch/submit reviews dynamically */}
                         <ReviewSection
-                            courseId={courseId} // Pass courseId to ReviewSection
-                            userEnrollment={enrollment} // Pass enrollment status for review submission logic
+                            courseId={courseId}
+                            userEnrollment={enrollment}
                         />
                     </div>
 
@@ -439,7 +446,7 @@ export default function CourseDetail() {
             {showCertificate && isCourseCompleted && (
                 <CertificateModal
                     course={course}
-                    user={user} // Pass the actual user object from useAuth
+                    user={user}
                     onClose={() => setShowCertificate(false)}
                 />
             )}
