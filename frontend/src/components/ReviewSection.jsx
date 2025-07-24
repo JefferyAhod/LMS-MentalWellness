@@ -211,7 +211,7 @@ export default function ReviewSection({ courseId, userEnrollment }) {
                                 <div className="flex items-center mb-2">
                                     {/* Display reviewer's name (populated from backend) or a fallback */}
                                     <p className="font-semibold text-gray-900 dark:text-white mr-2">
-                                        {review.student?.name || review.student?.email || "Anonymous User"}
+                                        {review.user?.name || review.user?.email || "Anonymous User"}
                                     </p>
                                     <div className="flex">
                                         {renderStars(review.rating)} {/* Non-interactive stars for display */}

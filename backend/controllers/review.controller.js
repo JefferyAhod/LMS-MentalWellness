@@ -8,7 +8,7 @@ import Enrollment from '../models/EnrollmentModel.js'; // To check if student is
 // @route   GET /api/reviews/:courseId
 // @access  Public
 export const getCourseReviews = asyncHandler(async (req, res) => {
-  const reviews = await Review.find({ course: req.params.courseId }).populate('student', 'name email'); // Populate student info
+  const reviews = await Review.find({ course: req.params.courseId }).populate('user', 'name email'); // Populate student info
   res.json(reviews);
 });
 
@@ -40,7 +40,7 @@ export const createReview = asyncHandler(async (req, res) => {
   // Check if student has already reviewed this course
   const alreadyReviewed = await Review.findOne({
     course: courseId,
-    student: req.user._id,
+    user: req.user._id,
   });
 
   if (alreadyReviewed) {
@@ -50,7 +50,7 @@ export const createReview = asyncHandler(async (req, res) => {
 
   const review = await Review.create({
     course: courseId,
-    student: req.user._id,
+    user: req.user._id,
     rating,
     comment,
   });

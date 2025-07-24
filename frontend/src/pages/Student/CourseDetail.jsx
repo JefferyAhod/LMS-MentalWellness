@@ -1,11 +1,8 @@
-// frontend/pages/Course/CourseDetail.jsx
+import React, { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { createPageUrl } from "@/utils";
 
-import React, { useState, useEffect } from "react";
-import { Link, useNavigate, useLocation } from "react-router-dom"; // Changed useParams to useLocation
-import { createPageUrl } from "@/utils"; // Utility for creating page URLs
-import { toast } from 'react-toastify'; // For user feedback
-
-// UI Components from Shadcn/ui
+// UI Components
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,34 +21,33 @@ import {
     ArrowLeft,
     Heart,
     Share2,
-    Loader2 // Added Loader2 for loading spinner
+    Loader2,
+    AlertCircle,
+    Lock
 } from "lucide-react";
 
-// Custom Components
-import VideoPlayer from "../../components/VideoPlayer"; // Ensure this path is correct
-import ReviewSection from "../../components/ReviewSection"; // This component will need its own data fetching
-import CertificateModal from "../../components/CertificateModal"; // Modal for certificate display
+// Components
+import VideoPlayer from "../../components/VideoPlayer";
+import ReviewSection from "../../components/ReviewSection";
+import CertificateModal from "../../components/CertificateModal";
 
-// Custom Hooks for data fetching and state management
-import { useFetchCourseDetail } from '../../hooks/useFetchCourseDetail'; // Fetches single course data
-import { useCourseProgress } from '../../hooks/useCourseProgress';     // Manages enrollment and lecture progress
-import { useAuth } from '@/context/AuthContext';                       // Provides user authentication status
+// Custom Hooks
+import { useAuth } from '@/context/AuthContext';
+import { useFetchCourseDetail } from '@/hooks/useFetchCourseDetail';
+import { useCourseProgress } from '@/hooks/useCourseProgress';
+import { toast } from 'react-toastify'; // Ensure toast is imported here
 
 export default function CourseDetail() {
     const navigate = useNavigate();
-    const location = useLocation(); // Use useLocation hook
+    const location = useLocation();
     const params = new URLSearchParams(location.search);
-    const courseId = params.get("id"); // Extract courseId from query parameter
+    const courseId = params.get("id");
 
-    // Get user authentication status from AuthContext
     const { user, isAuthenticated, loading: authLoading } = useAuth();
 
-    // Conditionally call hooks only if courseId is available
-    // The hooks themselves also have internal checks for courseId, but this prevents
-    // them from even starting if the ID is missing from the URL.
     const {
         course,
-        isLoading: isCourseLoading,
+        isLoading: courseLoading,
         error: courseError,
         refetchCourse
     } = useFetchCourseDetail(courseId);
@@ -62,103 +58,104 @@ export default function CourseDetail() {
         progressPercentage,
         isCourseCompleted,
         isLoadingProgress,
-        error: progressError,
         enroll,
         markLectureAsComplete,
-        isLectureCompleted,
-        refetchProgress
-    } = useCourseProgress(courseId);
+        isLectureCompleted
+    } = useCourseProgress(courseId, user?._id, course?.chapters);
 
     const [currentVideo, setCurrentVideo] = useState(null);
     const [showCertificate, setShowCertificate] = useState(false);
 
-    // Calculate total number of lectures in the course for progress calculation
-    const totalLecturesInCourse = course?.chapters?.reduce((sum, chapter) => sum + (chapter.lectures?.length || 0), 0) || 0;
+    useEffect(() => {
+        if (!courseId) {
+            return;
+        }
+        refetchCourse();
+    }, [courseId, refetchCourse]);
 
-    // --- Event Handlers ---
+    const handleEnroll = useCallback(async () => {
+        const success = await enroll(courseId, course?.price || 0);
+        if (success && course.price > 0) {
+            navigate(createPageUrl("PaymentPage", { courseId: courseId }));
+        }
+    }, [enroll, courseId, course?.price, navigate]);
 
-    // Handles the "Enroll Now" button click
-    const handleEnroll = async () => {
-        await enroll();
-    };
 
-    // Handles marking a lecture as complete (called from VideoPlayer)
-    const handleLectureComplete = async (lectureId) => {
-        await markLectureAsComplete(lectureId, totalLecturesInCourse);
-    };
-
-    // Handles playing a lecture video
-    const handlePlayLecture = (lecture) => {
-        if (enrollment || lecture.is_preview_free) {
+    const handleLectureClick = useCallback((lecture) => {
+        const isAccessible = enrollment || lecture.is_preview_free;
+        if (isAccessible) {
             setCurrentVideo(lecture);
         } else {
-            toast.error("Please enroll in the course to access this lecture.");
+            toast.info("Please enroll in the course to access this lecture.");
         }
-    };
+    }, [enrollment]);
 
-    // --- Utility Functions ---
 
-    // Formats duration from minutes to "Xh Ym"
+    const handleLectureComplete = useCallback(async (lectureId) => {
+        const success = await markLectureAsComplete(lectureId, course?.chapters);
+        if (success && isCourseCompleted) {
+            setShowCertificate(true);
+        }
+    }, [markLectureAsComplete, isCourseCompleted, course?.chapters]);
+
     const formatDuration = (minutes) => {
         const hours = Math.floor(minutes / 60);
         const mins = minutes % 60;
         return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     };
 
-    // --- Conditional Rendering for Loading/Error States ---
-
-    // Determine overall loading state for the entire page
-    const overallLoading = isCourseLoading || isLoadingProgress || authLoading;
-    const overallError = courseError || progressError;
-
-    // First, check if courseId is missing from the URL
+    // --- Conditional Renderings for Loading/Error/Access ---
     if (!courseId) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                <div className="text-center">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+                <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                    <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-6" />
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                         Course ID is missing from URL.
                     </h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
-                        Please ensure you navigate to this page with a valid course ID in the URL (e.g., /CourseDetail?id=YOUR_COURSE_ID).
+                        Please ensure you navigate to this page with a valid course ID in the URL (e.g., `/CourseDetail?id=YOUR_COURSE_ID`).
                     </p>
-                    <Link to={createPageUrl("CoursesPage")}>
-                        <Button>Back to Courses</Button>
-                    </Link>
+                    <Button onClick={() => navigate(createPageUrl("Home"))}>
+                        Back to Home
+                    </Button>
                 </div>
             </div>
         );
     }
 
-    // Show a full-page spinner while any data is loading
-    if (overallLoading) {
+    if (authLoading || courseLoading || isLoadingProgress) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+                <p className="ml-4 text-xl text-gray-700 dark:text-gray-300">Loading course details...</p>
             </div>
         );
     }
 
-    // Handle case where course data is not found or there's an error after loading
-    if (overallError || !course) {
+    if (courseError || !course) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-                <div className="text-center">
+                <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
+                    <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-6" />
                     <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                        {overallError ? `Error: ${overallError.message}` : "Course not found"}
+                        Course not found or an error occurred.
                     </h2>
-                    <Link to={createPageUrl("CoursesPage")}>
-                        <Button>Back to Courses</Button>
-                    </Link>
+                    <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        {courseError?.message || "The course you are looking for does not exist or could not be loaded."}
+                    </p>
+                    <Button onClick={() => navigate(createPageUrl("Home"))}>
+                        Back to Home
+                    </Button>
                 </div>
             </div>
         );
     }
 
-    // --- Main Component Render (when data is loaded and no errors) ---
+    // --- Main Course Detail Content ---
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-            {/* Header Section */}
+            {/* Header */}
             <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
                     <Button
@@ -171,7 +168,7 @@ export default function CourseDetail() {
                     </Button>
 
                     <div className="grid lg:grid-cols-3 gap-8">
-                        {/* Course Information Column (Left/Main) */}
+                        {/* Course Info */}
                         <div className="lg:col-span-2">
                             <div className="flex items-center gap-2 mb-4">
                                 <Badge variant="outline">
@@ -188,17 +185,16 @@ export default function CourseDetail() {
                                 {course.description}
                             </p>
 
-                            {/* Course Stats (Instructor, Duration, Students, Rating) */}
                             <div className="flex items-center gap-6 mb-6">
                                 <div className="flex items-center gap-2">
-                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                                    <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center overflow-hidden">
                                         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                                            {course.instructor_name?.[0]?.toUpperCase()}
+                                            {course.instructor_name?.[0]?.toUpperCase() || course.educator?.name?.[0]?.toUpperCase() || course.educator?.email?.[0]?.toUpperCase() || 'N/A'}
                                         </span>
                                     </div>
                                     <div>
                                         <p className="font-medium text-gray-900 dark:text-white">
-                                            {course.instructor_name}
+                                            {course.instructor_name || course.educator?.name || course.educator?.email || 'Unknown Instructor'}
                                         </p>
                                         <p className="text-sm text-gray-600 dark:text-gray-400">
                                             Instructor
@@ -217,7 +213,7 @@ export default function CourseDetail() {
                                     </div>
                                     <div className="flex items-center gap-1">
                                         <Star className="w-4 h-4 text-yellow-500" />
-                                        {course.ratingsAverage || 0} rating
+                                        {course.average_rating || course.ratingsAverage || 0} rating
                                     </div>
                                 </div>
                             </div>
@@ -253,17 +249,17 @@ export default function CourseDetail() {
                             )}
                         </div>
 
-                        {/* Enrollment Card Column (Right/Sidebar) */}
+                        {/* Enrollment Card */}
                         <div className="lg:col-span-1">
                             <Card className="sticky top-4 border-0 shadow-lg">
                                 <CardHeader className="p-0">
-                                    <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center rounded-t-lg">
+                                    <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center rounded-t-lg overflow-hidden">
                                         {course.thumbnail ? (
                                             <img
                                                 src={course.thumbnail}
                                                 alt={course.title}
                                                 className="w-full h-full object-cover rounded-t-lg"
-                                                onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/600x400/cccccc/333333?text=No+Img'; }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/64x64/cccccc/333333?text=No+Img'; }}
                                             />
                                         ) : (
                                             <Play className="w-12 h-12 text-white opacity-70" />
@@ -273,24 +269,23 @@ export default function CourseDetail() {
                                 <CardContent className="p-6">
                                     <div className="text-center mb-6">
                                         <div className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                                            {course.price === 0 ? "Free" : `$${course.price.toFixed(2)}`}
+                                            {course.price === 0 ? "Free" : `$${course.price}`}
                                         </div>
                                         <p className="text-gray-600 dark:text-gray-400">
                                             Lifetime access
                                         </p>
                                     </div>
 
-                                    {/* Conditional buttons based on enrollment status */}
                                     {enrollment ? (
                                         <div className="space-y-3">
                                             <Button
                                                 className="w-full"
                                                 onClick={() => {
-                                                    // Play the first lecture if enrolled and available
-                                                    if (course.chapters && course.chapters.length > 0 && course.chapters[0].lectures.length > 0) {
-                                                        handlePlayLecture(course.chapters[0].lectures[0]);
+                                                    const firstLecture = course.chapters?.[0]?.lectures?.[0];
+                                                    if (firstLecture) {
+                                                        setCurrentVideo(firstLecture);
                                                     } else {
-                                                        toast.info("No lectures found in this course yet.");
+                                                        toast.info("No lectures found for this course.");
                                                     }
                                                 }}
                                             >
@@ -307,10 +302,11 @@ export default function CourseDetail() {
                                             <Button
                                                 className="w-full"
                                                 onClick={handleEnroll}
-                                                disabled={isLoadingProgress || !isAuthenticated}
+                                                // The hook itself will manage the loading state and prevent re-enroll
+                                                // Text changes to "Enrolling..." via isLoadingProgress
                                             >
                                                 <BookOpen className="w-4 h-4 mr-2" />
-                                                {isLoadingProgress ? 'Enrolling...' : (course.price === 0 ? 'Enroll Free' : 'Enroll Now')}
+                                                {isLoadingProgress ? 'Enrolling...' : 'Enroll Now'}
                                             </Button>
                                             <Button variant="outline" className="w-full">
                                                 <Share2 className="w-4 h-4 mr-2" />
@@ -325,23 +321,20 @@ export default function CourseDetail() {
                 </div>
             </div>
 
-            {/* Video Player Modal */}
+            {/* Video Player */}
             {currentVideo && (
                 <VideoPlayer
                     video={currentVideo}
-                    onClose={() => {
-                        setCurrentVideo(null);
-                        refetchProgress();
-                    }}
+                    onClose={() => setCurrentVideo(null)}
                     onComplete={() => handleLectureComplete(currentVideo._id)}
                     isCompleted={isLectureCompleted(currentVideo._id)}
                 />
             )}
 
-            {/* Course Content Section (Curriculum and Reviews) */}
+            {/* Course Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid lg:grid-cols-3 gap-8">
-                    {/* Course Curriculum Column */}
+                    {/* Course Curriculum */}
                     <div className="lg:col-span-2">
                         <Card className="mb-8 border-0">
                             <CardHeader>
@@ -349,61 +342,78 @@ export default function CourseDetail() {
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4">
-                                    {course.chapters?.map((chapter) => (
-                                        <div key={chapter._id} className="border rounded-lg overflow-hidden">
-                                            <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3">
-                                                <h3 className="font-semibold text-gray-900 dark:text-white">
-                                                    {chapter.title}
-                                                </h3>
-                                            </div>
-                                            <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                                                {chapter.lectures?.map((lecture) => (
-                                                    <div
-                                                        key={lecture._id}
-                                                        className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
-                                                        onClick={() => handlePlayLecture(lecture)}
-                                                    >
-                                                        <div className="flex items-center justify-between">
-                                                            <div className="flex items-center gap-3">
-                                                                {isLectureCompleted(lecture._id) ? (
-                                                                    <CheckCircle className="w-5 h-5 text-green-500" />
-                                                                ) : (
-                                                                    <Play className="w-5 h-5 text-gray-400" />
-                                                                )}
-                                                                <div>
-                                                                    <p className="font-medium text-gray-900 dark:text-white">
-                                                                        {lecture.title}
-                                                                    </p>
-                                                                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                                        <Clock className="w-3 h-3" />
-                                                                        {formatDuration(lecture.duration || 0)}
-                                                                        {lecture.is_preview_free && (
-                                                                            <Badge variant="outline" className="text-xs">
-                                                                                Preview
-                                                                            </Badge>
-                                                                        )}
+                                    {course.chapters?.length > 0 ? (
+                                        course.chapters.map((chapter, chapterIndex) => (
+                                            <div key={chapter._id || chapterIndex} className="border rounded-lg overflow-hidden">
+                                                <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                        {chapter.title}
+                                                    </h3>
+                                                </div>
+                                                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                                                    {chapter.lectures?.map((lecture) => {
+                                                        const isAccessible = enrollment || lecture.is_preview_free;
+                                                        const isCompleted = isLectureCompleted(lecture._id);
+
+                                                        return (
+                                                            <div
+                                                                key={lecture._id}
+                                                                className={`px-4 py-3 flex items-center justify-between ${
+                                                                    isAccessible ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : 'cursor-not-allowed opacity-60'
+                                                                }`}
+                                                                onClick={() => {
+                                                                    if (isAccessible) {
+                                                                        setCurrentVideo(lecture);
+                                                                    } else {
+                                                                        toast.info("Please enroll in the course to access this lecture.");
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <div className="flex items-center gap-3">
+                                                                    {isCompleted ? (
+                                                                        <CheckCircle className="w-5 h-5 text-green-500" />
+                                                                    ) : isAccessible ? (
+                                                                        <Play className="w-5 h-5 text-gray-400" />
+                                                                    ) : (
+                                                                        <Lock className="w-5 h-5 text-gray-400" />
+                                                                    )}
+                                                                    <div>
+                                                                        <p className="font-medium text-gray-900 dark:text-white">
+                                                                            {lecture.title}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                                                            <Clock className="w-3 h-3" />
+                                                                            {formatDuration(lecture.duration || 0)}
+                                                                            {lecture.is_preview_free && (
+                                                                                <Badge variant="outline" className="text-xs">
+                                                                                    Preview
+                                                                                </Badge>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 </div>
+                                                                <ChevronRight className="w-4 h-4 text-gray-400" />
                                                             </div>
-                                                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                                                        </div>
-                                                    </div>
-                                                ))}
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        ))
+                                    ) : (
+                                        <p className="text-gray-600 dark:text-gray-400 text-center py-8">No curriculum available for this course yet.</p>
+                                    )}
                                 </div>
                             </CardContent>
                         </Card>
 
-                        {/* Reviews Section */}
+                        {/* Reviews */}
                         <ReviewSection
-                            courseId={courseId}
+                            courseId={course._id}
                             userEnrollment={enrollment}
                         />
                     </div>
 
-                    {/* Sidebar Column (Course Includes) */}
+                    {/* Sidebar */}
                     <div className="lg:col-span-1">
                         <Card className="mb-6 border-0">
                             <CardHeader>

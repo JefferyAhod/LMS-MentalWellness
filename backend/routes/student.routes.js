@@ -28,8 +28,8 @@ studentRouter.post("/onboarding", completeStudentOnboarding);
 // @route   GET /api/students/courses
 studentRouter.get("/courses", getStudentCourses);
 
-// @route   POST /api/students/enroll/:courseId
-studentRouter.post("/enroll/:courseId", enrollInCourse);
+// @route   POST /api/students/enroll
+studentRouter.post("/enroll", enrollInCourse);
 
 // @route   GET /api/students/progress/:courseId
 studentRouter.get("/progress/:courseId", getLearningProgress);

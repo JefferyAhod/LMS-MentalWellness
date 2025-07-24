@@ -1,7 +1,6 @@
-// frontend/src/hooks/useFetchCourseDetail.js
-
 import { useState, useEffect, useCallback } from 'react';
-import { getCourseById } from '@/api/courses'; // Import the getCourseById API function
+import { getCourseById } from '@/api/courses'; // Assuming this API function exists
+import { toast } from 'react-toastify';
 
 /**
  * Custom hook to fetch a single course's details.
@@ -15,8 +14,9 @@ export const useFetchCourseDetail = (courseId) => {
 
     const fetchCourse = useCallback(async () => {
         if (!courseId) {
-            setError(new Error("Course ID is required."));
+            console.warn("useFetchCourseDetail: No courseId provided, skipping fetch.");
             setIsLoading(false);
+            setError(new Error("Course ID is required to fetch details."));
             return;
         }
 
@@ -26,17 +26,17 @@ export const useFetchCourseDetail = (courseId) => {
             const data = await getCourseById(courseId);
             setCourse(data);
         } catch (err) {
+            console.error("useFetchCourseDetail: Error fetching course:", err);
             setError(err);
-            console.error(`Failed to fetch course ${courseId} details:`, err);
-            setCourse(null);
+            toast.error(err.response?.data?.message || `Failed to load course: ${courseId}.`);
         } finally {
             setIsLoading(false);
         }
-    }, [courseId]);
+    }, [courseId]); // Dependency on courseId
 
     useEffect(() => {
         fetchCourse();
-    }, [fetchCourse]);
+    }, [fetchCourse]); // Depend on fetchCourse callback
 
     return { course, isLoading, error, refetchCourse: fetchCourse };
 };

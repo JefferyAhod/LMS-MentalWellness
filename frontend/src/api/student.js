@@ -21,6 +21,12 @@ export const enrollInCourse = async (courseId) => {
   return res.data;
 };
 
+export const fetchEnrolledCourses = async () => {
+        const res = await API.get('/student/courses');
+        return res.data;
+
+};
+
 export const getStudentCourses = async () => {
   const res = await API.get("/student/courses");
   return res.data;
