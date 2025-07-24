@@ -74,7 +74,7 @@ export const getStudentCourses = asyncHandler(async (req, res) => {
 // @route   POST /api/students/enroll/:courseId
 // @access  Private
 export const enrollInCourse = asyncHandler(async (req, res) => {
-  const { courseId } = req.params;
+  const { courseId } = req.body;
 
   const course = await Course.findById(courseId);
   if (!course) {

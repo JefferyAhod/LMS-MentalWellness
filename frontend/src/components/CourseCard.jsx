@@ -34,6 +34,7 @@ export default function CourseCard({ course, featured = false }) {
         } else {
             window.location.href = createPageUrl(`CourseDetail?id=${course.id}`);
         }
+        
     };
 
     return (
