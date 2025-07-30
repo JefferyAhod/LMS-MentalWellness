@@ -3,7 +3,6 @@ import Layout from "./components/layout";
 import Dashboard from "./pages/Student/Dashboard";
 import Home from "./pages/Home";
 import { Route, Routes } from "react-router-dom";
-import Wellness from "./pages/Wellness";
 import Login from "./pages/Login";
 import AIContentGenerator from "./pages/AIContentGenerator";
 import EducatorDashboard from "./pages/Educator/Dashboard";
@@ -17,6 +16,7 @@ import { useAuth } from "./context/AuthContext";
 import useUser from "./hooks/useUser"; // <-- Import useUser
 import Analytics from "./pages/Educator/Analytics";
 import CoursesPage from "./pages/CoursesPage";
+import Wellness from "./pages/Student/Wellness";
 
 function App() {
   const { user } = useAuth(); // Get user from auth context

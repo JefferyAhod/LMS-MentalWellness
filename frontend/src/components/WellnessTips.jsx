@@ -1,93 +1,91 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Lightbulb, RefreshCw } from "lucide-react";
+import { Lightbulb, Loader2 } from "lucide-react"; // Added Loader2, removed RefreshCw and Button
+
+// Import the necessary hooks
+import { useAuth } from '@/context/AuthContext';
+import { useWellnessInsights } from "../hooks/useAi";
 
 export default function WellnessTips() {
-  const [currentTip, setCurrentTip] = useState(0);
+  const { user, loading: authLoading } = useAuth(); // Get user for fetching insights
+  const [triggerInsightsFetch, setTriggerInsightsFetch] = useState(false);
 
-  const tips = [
-    {
-      title: "Take Deep Breaths",
-      content: "When feeling stressed, try the 4-7-8 breathing technique: inhale for 4, hold for 7, exhale for 8.",
-      icon: "🧘‍♀️"
-    },
-    {
-      title: "Stay Hydrated",
-      content: "Drinking enough water can improve your mood and energy levels throughout the day.",
-      icon: "💧"
-    },
-    {
-      title: "Move Your Body",
-      content: "Even a 10-minute walk can boost your mood and reduce stress levels.",
-      icon: "🚶‍♀️"
-    },
-    {
-      title: "Practice Gratitude",
-      content: "Write down 3 things you're grateful for each day to cultivate positivity.",
-      icon: "🙏"
-    },
-    {
-      title: "Connect with Others",
-      content: "Reach out to friends or family. Social connections are vital for mental health.",
-      icon: "💬"
-    },
-    {
-      title: "Limit Screen Time",
-      content: "Take regular breaks from screens to reduce eye strain and mental fatigue.",
-      icon: "📱"
-    },
-    {
-      title: "Get Quality Sleep",
-      content: "Aim for 7-9 hours of sleep. Good sleep is essential for emotional regulation.",
-      icon: "😴"
-    },
-    {
-      title: "Practice Mindfulness",
-      content: "Spend 5 minutes focusing on the present moment to reduce anxiety.",
-      icon: "🧠"
-    }
-  ];
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTip((prev) => (prev + 1) % tips.length);
-    }, 10000); // Change tip every 10 seconds
-
-    return () => clearInterval(interval);
-  }, [tips.length]);
-
-  const nextTip = () => {
-    setCurrentTip((prev) => (prev + 1) % tips.length);
+  // Define moodDataForInsights locally for this component
+  const moodDataForInsights = {
+    userId: user?._id,
+    // Note: We're not passing moodEntries.length directly from Wellness.jsx to here,
+    // so this insight might not re-fetch immediately if mood entries change *only* in the parent.
+    // For simplicity given the instruction, this component will fetch its own insight on mount/user change.
   };
 
+  // Use the useWellnessInsights hook directly in WellnessTips
+  const {
+    insight,
+    isLoading: isInsightLoading,
+    error: insightError
+  } = useWellnessInsights(moodDataForInsights, triggerInsightsFetch);
+
+  // Effect to trigger insights fetch once user is available and not loading
+  useEffect(() => {
+    if (user && !authLoading && !triggerInsightsFetch) {
+      setTriggerInsightsFetch(true);
+    }
+  }, [user, authLoading, triggerInsightsFetch]);
+
+
+  // Handle loading states
+  if (authLoading || (triggerInsightsFetch && isInsightLoading)) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-yellow-500" />
+            AI Wellness Insight
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-center py-8">
+          <Loader2 className="animate-spin mr-2" /> Generating insights...
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Handle error state
+  if (insightError) {
+    return (
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-yellow-500" />
+            AI Wellness Insight
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-8 text-center text-red-500">
+          Error loading insight: {insightError}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Display the insight
   return (
     <Card className="border-0 shadow-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Lightbulb className="w-5 h-5 text-yellow-500" />
-          Daily Wellness Tip
+          AI Wellness Insight
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="text-center">
-          <div className="text-4xl mb-4">{tips[currentTip].icon}</div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-            {tips[currentTip].title}
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            {tips[currentTip].content}
+        {insight ? (
+          <p className="text-gray-700 dark:text-gray-300">
+            {insight}
           </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={nextTip}
-            className="flex items-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Next Tip
-          </Button>
-        </div>
+        ) : (
+          <p className="text-gray-500 dark:text-gray-400 text-center">
+            AI insights will appear here once your mood data is analyzed.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
