@@ -1,111 +1,67 @@
 import React, { useState, useEffect } from "react";
-import { User } from "@/entities/User";
-import { MoodEntry } from "@/entities/MoodEntry";
+// Removed direct entity imports, as data flow is now handled by hooks
+// import { User } from "@/entities/User";
+// import { MoodEntry } from "@/entities/MoodEntry";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Heart, 
-  Smile, 
-  Frown, 
-  Meh, 
+import {
+  Heart,
+  Smile,
+  Frown,
+  Meh,
   Activity,
   Brain,
   MessageCircle,
   TrendingUp,
   Calendar,
-  Lightbulb
+  Lightbulb,
+  Loader2 // Added for loading state
 } from "lucide-react";
 
-import MoodTracker from "../components/MoodTracker";
-import WellnessTips from "../components/WellnessTips";
-import CounselorChat from "../components/CounselorChat";
+import MoodTracker from "../../components/MoodTracker";
+import WellnessTips from "../../components/WellnessTips";
+import CounselorChat from "../../components/CounselorChat";
 import { Link } from "react-router-dom";
 
+// Import your custom hooks for authentication and mood tracking
+import { useAuth } from '@/context/AuthContext';
+import { useMoodTracker } from '../../hooks/useMoodTracker'; // Adjust path if necessary
+
 export default function Wellness() {
-  const [user, setUser] = useState(null);
-  const [moodEntries, setMoodEntries] = useState([]);
-  const [todaysMood, setTodaysMood] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Use data and loading states directly from your hooks
+  const { user, loading: authLoading } = useAuth();
+  const {
+    moodEntries,
+    todaysMood,
+    isLoadingMoods, // Represents loading state for mood data
+    isSubmittingMood, // Represents loading state for mood submission
+    submitMood, // Function to handle mood creation/update
+    // fetchMoodData, // Not directly used here, as submitMood re-fetches
+    getMoodIcon, // Helper from hook for icons
+    getMoodColor // Helper from hook for colors
+  } = useMoodTracker();
+
   const [showCounselor, setShowCounselor] = useState(false);
 
+  // useEffect is no longer needed to manually call loadWellnessData,
+  // as useMoodTracker's internal useEffect handles initial data fetching.
   useEffect(() => {
-    loadWellnessData();
-  }, []);
+    // You can add other side effects here if needed,
+    // e.g., logging or analytics once data is loaded.
+  }, [user, moodEntries, todaysMood]); // Dependencies can be based on your logic
 
-  const loadWellnessData = async () => {
-    try {
-      const userData = await User.me();
-      setUser(userData);
-
-      const entries = await MoodEntry.filter({ user_id: userData.id }, "-date");
-      setMoodEntries(entries);
-
-      // Check if user has mood entry for today
-      const today = new Date().toISOString().split('T')[0];
-      const todayEntry = entries.find(entry => entry.date === today);
-      setTodaysMood(todayEntry);
-    } catch (error) {
-      console.error("Error loading wellness data:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  // This function now uses the submitMood from useMoodTracker hook
   const handleMoodSubmit = async (mood, notes) => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      
-      if (todaysMood) {
-        // Update existing entry
-        await MoodEntry.update(todaysMood.id, { mood, notes });
-      } else {
-        // Create new entry
-        await MoodEntry.create({
-          user_id: user.id,
-          mood,
-          notes,
-          date: today
-        });
-      }
-
-      loadWellnessData();
-    } catch (error) {
-      console.error("Error submitting mood:", error);
-    }
+    // The submitMood function from the hook handles if it's an update or new creation,
+    // and automatically reloads mood data.
+    await submitMood(mood, notes);
   };
 
-  const getMoodIcon = (mood) => {
-    switch (mood) {
-      case 'very_happy':
-        return <Smile className="w-8 h-8 text-green-500" />;
-      case 'happy':
-        return <Smile className="w-8 h-8 text-yellow-500" />;
-      case 'neutral':
-        return <Meh className="w-8 h-8 text-gray-500" />;
-      case 'sad':
-        return <Frown className="w-8 h-8 text-orange-500" />;
-      case 'very_sad':
-        return <Frown className="w-8 h-8 text-red-500" />;
-      default:
-        return <Meh className="w-8 h-8 text-gray-500" />;
-    }
-  };
-
-  const getMoodColor = (mood) => {
-    switch (mood) {
-      case 'very_happy': return 'bg-green-100 text-green-800';
-      case 'happy': return 'bg-yellow-100 text-yellow-800';
-      case 'neutral': return 'bg-gray-100 text-gray-800';
-      case 'sad': return 'bg-orange-100 text-orange-800';
-      case 'very_sad': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
+  // Helper function for weekly trend remains in Wellness.jsx
   const getWeeklyMoodTrend = () => {
-    const lastWeek = moodEntries.slice(0, 7);
+    const lastWeek = moodEntries.slice(0, 7); // Assuming moodEntries are already sorted by date descending
     const moodValues = {
       very_sad: 1,
       sad: 2,
@@ -113,34 +69,40 @@ export default function Wellness() {
       happy: 4,
       very_happy: 5
     };
-    
+
+    // Ensure lastWeek is not empty to avoid division by zero
+    if (lastWeek.length === 0) return 3; // Default to neutral if no entries
+
     const average = lastWeek.reduce((sum, entry) => sum + moodValues[entry.mood], 0) / lastWeek.length;
-    return average || 3;
+    return average;
   };
 
-  if (isLoading) {
+  // Combine loading states from both hooks
+  if (authLoading || isLoadingMoods) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <Loader2 className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600" />
       </div>
     );
   }
 
-  if (!user) {
+  // Check if user is logged in after authentication loading
+  if (!authLoading && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
             Please log in to access wellness features
           </h2>
-          <Button  onClick={() => User.login()}>
-           <Link to='/login'>Log In </Link>
+          <Button>
+            <Link to='/login'>Log In</Link>
           </Button>
         </div>
       </div>
     );
   }
 
+  // Main UI remains unchanged
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -209,14 +171,16 @@ export default function Wellness() {
             <MoodTracker
               onMoodSubmit={handleMoodSubmit}
               todaysMood={todaysMood}
-              moodEntries={moodEntries}
+              // moodEntries prop is not passed here as MoodTracker typically handles new entries, not displays all.
+              // If MoodTracker needs moodEntries, ensure it uses its own props or context.
+              // Your MoodTracker.jsx (provided previously) uses its own internal state, so no change needed here.
             />
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             <WellnessTips />
-            
+
             {/* Counselor Support */}
             <Card className="border-0 shadow-lg">
               <CardHeader>
@@ -227,10 +191,10 @@ export default function Wellness() {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  If you're struggling with stress, anxiety, or any mental health concerns, 
+                  If you're struggling with stress, anxiety, or any mental health concerns,
                   our counselors are here to help.
                 </p>
-                <Button 
+                <Button
                   onClick={() => setShowCounselor(true)}
                   className="w-full bg-blue-600 hover:bg-blue-700"
                 >
@@ -252,14 +216,14 @@ export default function Wellness() {
                 {moodEntries.slice(0, 7).map((entry) => (
                   <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div className="flex items-center gap-3">
-                      {getMoodIcon(entry.mood)}
+                      {getMoodIcon(entry.mood)} {/* Using getMoodIcon from useMoodTracker */}
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">
-                          {new Date(entry.date).toLocaleDateString('en-US', { 
-                            weekday: 'long', 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
+                          {new Date(entry.date).toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
                           })}
                         </p>
                         {entry.notes && (
@@ -269,7 +233,7 @@ export default function Wellness() {
                         )}
                       </div>
                     </div>
-                    <Badge className={getMoodColor(entry.mood)}>
+                    <Badge className={getMoodColor(entry.mood)}> {/* Using getMoodColor from useMoodTracker */}
                       {entry.mood.replace('_', ' ')}
                     </Badge>
                   </div>

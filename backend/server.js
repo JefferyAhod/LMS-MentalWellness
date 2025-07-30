@@ -10,6 +10,8 @@ import studentRouter from './routes/student.routes.js';
 import adminRouter from './routes/admin.routes.js';
 import coursesRouter from './routes/courses.routes.js';
 import reviewRouter from './routes/reviews.routes.js';
+import moodEntryRouter from './routes/moodEntry.routes.js';
+import aiRouter from './routes/ai.routes.js';
 
 dotenv.config();
 const port = process.env.PORT || 5000;
@@ -35,6 +37,10 @@ const app = express();
  app.use("/api/educator", educatorRouter);
  app.use("/api/courses", coursesRouter);
  app.use("/api/reviews", reviewRouter); 
+app.use("/api/moods", moodEntryRouter); 
+app.use("/api/ai", aiRouter); 
+
+
 
 
 

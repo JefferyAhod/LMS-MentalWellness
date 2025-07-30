@@ -1,0 +1,44 @@
+[
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "happy",
+    "notes": "Had a productive day at work.",
+    "date": "2025-07-25"
+  },
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "neutral",
+    "notes": "Just a regular day, nothing special.",
+    "date": "2025-07-24"
+  },
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "very_happy",
+    "notes": "Spent quality time with family.",
+    "date": "2025-07-23"
+  },
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "sad",
+    "notes": "Felt a bit down due to bad news.",
+    "date": "2025-07-22"
+  },
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "happy",
+    "notes": "Enjoyed a relaxing evening.",
+    "date": "2025-07-21"
+  },
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "neutral",
+    "notes": "Busy day, but managed to get things done.",
+    "date": "2025-07-20"
+  },
+  {
+    "user": "687b83c7718836f8fe9ac4c9",
+    "mood": "very_sad",
+    "notes": "Struggled with a challenging task.",
+    "date": "2025-07-19"
+  }
+]
