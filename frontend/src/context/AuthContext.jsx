@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { loginUser, logoutUser, registerUser } from "../api/auth"; 
+import { completeOnboardingAPI, loginUser, logoutUser, registerUser } from "../api/auth"; 
 import API from "../api/axios"; 
 
 const AuthContext = createContext(null);
@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
       setError(null);
       const userData = await loginUser(credentials);
       setUser(userData);
-      return { success: true };
+  return { success: true, user: userData };
     } catch (err) {
       const errorMessage = err.response?.data?.message || "Login failed. Please check your credentials.";
       setError(errorMessage);
@@ -63,6 +63,22 @@ export const AuthProvider = ({ children }) => {
       setError(null);
     }
   };
+  const updateUserOnboardingStatus = async () => {
+    try {
+      // Call the backend API to mark onboarding complete
+      const updatedUserData = await completeOnboardingAPI();
+      // Update the user state in context with the new status
+      setUser(prevUser => ({
+        ...prevUser,
+        onboardingCompleted: updatedUserData.onboardingCompleted // This should be true
+      }));
+      return { success: true };
+    } catch (err) {
+      console.error("Failed to update onboarding status:", err);
+      setError(err.response?.data?.message || "Failed to mark onboarding as complete.");
+      return { success: false, message: err.response?.data?.message || "Failed to mark onboarding as complete." };
+    }
+  };
 
   const contextValue = {
     user,
@@ -70,9 +86,11 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUserOnboardingStatus,
     loading,
     error,
     isAuthenticated: !!user,
+    isOnboardingComplete: user ? user.onboardingCompleted : false,
   };
 
   return (

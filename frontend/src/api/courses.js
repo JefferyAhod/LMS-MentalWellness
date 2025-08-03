@@ -1,6 +1,4 @@
-// frontend/src/api/courses.js
-
-import API from "./axios"; // Assuming your Axios instance is exported as 'API' from './axios.js'
+import API from "./axios"; 
 
 export const getCourses = async (params = {}) => {
     try {

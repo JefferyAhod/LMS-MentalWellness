@@ -28,31 +28,25 @@ export const useMoodTracker = () => {
   };
 
   // Fetches all past mood entries and today's entry
-  const fetchMoodData = useCallback(async () => {
-    if (authLoading || !isAuthenticated || !user?._id) {
-      setIsLoadingMoods(false);
-      setMoodEntries([]);
-      setTodaysMood(null);
-      return;
-    }
+const fetchMoodData = useCallback(async () => {
+  setIsLoadingMoods(true);
+  setMoodError(null);
+  try {
+    const [allEntries, todayEntry] = await Promise.all([
+      getMoodEntries(),
+      getTodaysMoodEntry()
+    ]);
+    setMoodEntries(allEntries);
+    setTodaysMood(todayEntry);
+  } catch (err) {
+    console.error("Error fetching mood data:", err);
+    setMoodError(err);
+    toast.error(err.response?.data?.message || "Failed to load mood data.");
+  } finally {
+    setIsLoadingMoods(false);
+  }
+}, []);
 
-    setIsLoadingMoods(true);
-    setMoodError(null);
-    try {
-      const [allEntries, todayEntry] = await Promise.all([
-        getMoodEntries(),
-        getTodaysMoodEntry()
-      ]);
-      setMoodEntries(allEntries);
-      setTodaysMood(todayEntry); // Will be null if no entry for today
-    } catch (err) {
-      console.error("Error fetching mood data:", err);
-      setMoodError(err);
-      toast.error(err.response?.data?.message || "Failed to load mood data.");
-    } finally {
-      setIsLoadingMoods(false);
-    }
-  }, [isAuthenticated, user, authLoading]);
 
   // Effect to run on component mount and authentication state changes
   useEffect(() => {

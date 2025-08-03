@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,8 +25,13 @@ import {
   Video,
   MessageCircleQuestion,
   Upload,
+  Loader2,
 } from "lucide-react";
+
 import { completeEducatorOnboarding } from "@/api/educator";
+import { completeOnboardingAPI } from "@/api/auth.js";
+import { useAuth } from "@/context/AuthContext.jsx";
+
 
 const steps = [
   { label: "Profile", icon: <User className="w-5 h-5" /> },
@@ -45,7 +50,7 @@ export default function EducatorOnboarding() {
     teachingMode: "",
     availability: "",
     groupSize: "",
-    platforms: [], 
+    platforms: [],
     sampleLink: "",
     hasDigitalExperience: false,
     motivation: "",
@@ -57,6 +62,33 @@ export default function EducatorOnboarding() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
+  const { user, isAuthenticated, isOnboardingComplete, loading: authLoading, updateUserOnboardingStatus } = useAuth();
+
+
+  // Redirect logic based on authentication and onboarding status
+  useEffect(() => {
+    if (authLoading) {
+      return; // Wait for auth state to resolve
+    }
+
+    if (!isAuthenticated) {
+      toast.info("Please log in to complete onboarding.");
+      navigate("/Login");
+      return;
+    }
+
+    if (user && user.role === 'educator') {
+      if (isOnboardingComplete) {
+        toast.info("Onboarding already completed.");
+        navigate("/EducatorDashboard");
+        return;
+      }
+    } else if (user && user.role !== 'educator') {
+      toast.warn("You do not have access to educator onboarding.");
+      navigate("/Home");
+    }
+  }, [isAuthenticated, isOnboardingComplete, user, authLoading, navigate]);
+
 
   const handleChange = useCallback((key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -105,50 +137,58 @@ export default function EducatorOnboarding() {
   }, [step]);
 
   const handleSubmit = useCallback(async () => {
+    // Final validation for the last step
     if (!formData.motivation || !formData.subjects || !formData.valueProposition) {
-        toast.error("Please fill in all vision details.");
-        return;
+      toast.error("Please fill in all vision details.");
+      return;
     }
     if (!formData.credentialsText) {
-        toast.error("Please provide your credentials text or link.");
-        return;
+      toast.error("Please provide your credentials text or link.");
+      return;
     }
     if (!formData.agreeTerms) {
-        toast.error("You must agree to the terms and conditions.");
-        return;
+      toast.error("You must agree to the terms and conditions.");
+      return;
     }
 
     setIsSubmitting(true);
     try {
       const payload = new FormData();
       for (const key in formData) {
-        if (key === "agreeTerms") { 
+        if (key === "agreeTerms") {
           continue;
         }
-
         let actualKey = key;
         let actualValue = formData[key];
 
         if (key === "credentialsText") {
-            actualKey = "credentialsFile"; 
+            actualKey = "credentialsFile";
         }
 
         if (actualValue !== null && actualValue !== undefined) {
-            if (Array.isArray(actualValue)) {
-                actualValue.forEach(item => {
-                    payload.append(actualKey, item);
-                });
-            } else if (typeof actualValue === 'boolean') { 
-                payload.append(actualKey, actualValue ? "true" : "false");
-            } else {
-                payload.append(actualKey, actualValue);
-            }
+          if (Array.isArray(actualValue)) {
+            actualValue.forEach(item => {
+              payload.append(actualKey, item);
+            });
+          } else if (typeof actualValue === 'boolean') {
+            payload.append(actualKey, actualValue ? "true" : "false");
+          } else {
+            payload.append(actualKey, actualValue);
+          }
         }
       }
 
+      // 1. Submit educator-specific profile data
       await completeEducatorOnboarding(payload);
-      toast.success("Application submitted successfully!");
-      navigate("/dashboard"); 
+
+      // 2. Mark general user onboarding as complete in the AuthContext and on the User model in backend
+      const updateResult = await updateUserOnboardingStatus();
+      if (!updateResult.success) {
+        throw new Error(updateResult.message || "Failed to update general onboarding status.");
+      }
+
+      toast.success("Application submitted successfully! Onboarding complete.");
+      navigate("/EducatorDashboard");
     } catch (err) {
       console.error("Educator onboarding submission error:", err);
       toast.error(
@@ -157,7 +197,12 @@ export default function EducatorOnboarding() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, navigate]);
+  }, [formData, navigate, updateUserOnboardingStatus]);
+
+  // Render nothing if auth is loading, or if conditions for redirect are met
+  if (authLoading || (!isAuthenticated && !authLoading) || (user && user.role === 'educator' && isOnboardingComplete)) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-tr from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800 p-4">
@@ -405,7 +450,13 @@ export default function EducatorOnboarding() {
               <Button onClick={handleNext}>Continue</Button>
             ) : (
               <Button onClick={handleSubmit} disabled={isSubmitting || !formData.agreeTerms}>
-                {isSubmitting ? "Submitting..." : "Submit Application"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
+                  </>
+                ) : (
+                  "Submit Application"
+                )}
               </Button>
             )}
           </div>

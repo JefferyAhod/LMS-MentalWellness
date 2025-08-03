@@ -17,15 +17,15 @@ import {
     Play,
     Heart,
     GraduationCap,
-    Loader2, // For loading spinner
-    AlertCircle // For error messages
+    Loader2, 
+    AlertCircle 
 } from "lucide-react";
 
 // Custom Hooks
 import { useAuth } from '@/context/AuthContext'; // To get authentication status and user
 import { useFetchStudentDashboard } from '@/hooks/useFetchStudentDashboard'; // To fetch dashboard data
 
-export default function Dashboard() {
+export default function StudentDashboard() {
     const navigate = useNavigate();
 
     // Fetch dashboard data using the custom hook

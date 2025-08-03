@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +26,12 @@ import {
   Target,
   Users,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 
 import { completeStudentOnboarding } from "@/api/student";
+import { useAuth } from "@/context/AuthContext.jsx";
+
 
 const steps = [
   { label: "Profile", icon: <GraduationCap className="w-5 h-5" /> },
@@ -63,14 +66,41 @@ export default function StudentOnboarding() {
     goals: [],
     discipline: [],
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const navigate = useNavigate();
+  const { user, isAuthenticated, isOnboardingComplete, loading: authLoading, updateUserOnboardingStatus } = useAuth();
 
-  const handleChange = (key, value) => {
+  // Redirect logic based on authentication and onboarding status,
+  // consistent with the EducatorOnboarding component.
+  useEffect(() => {
+    if (authLoading) {
+      return; // Wait for auth state to resolve
+    }
+
+    if (!isAuthenticated) {
+      toast.info("Please log in to complete onboarding.");
+      navigate("/Login");
+      return;
+    }
+
+    if (user && user.role === 'student') {
+      if (isOnboardingComplete) {
+        toast.info("Onboarding already completed.");
+        navigate("/StudentDashboard");
+        return;
+      }
+    } else if (user && user.role !== 'student') {
+      toast.warn("You do not have access to student onboarding.");
+      navigate("/Home");
+    }
+  }, [isAuthenticated, isOnboardingComplete, user, authLoading, navigate]);
+
+  const handleChange = useCallback((key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
-  };
+  }, []);
 
-  const handleCheckboxChange = (key, value) => {
+  const handleCheckboxChange = useCallback((key, value) => {
     setFormData((prev) => {
       const current = prev[key] || [];
       if (current.includes(value)) {
@@ -79,29 +109,79 @@ export default function StudentOnboarding() {
         return { ...prev, [key]: [...current, value] };
       }
     });
-  };
+  }, []);
 
-  const handleNext = () => step < steps.length - 1 && setStep(step + 1);
-  const handlePrev = () => step > 0 && setStep(step - 1);
-
-const handleSubmit = async () => {
-  try {
-    await completeStudentOnboarding(formData);
-    toast.success("Onboarding completed!");
-    navigate("/dashboard");
-  } catch (error) {
-    const raw = error?.response?.data?.message || "Failed to complete onboarding";
-
-    if (raw.includes("StudentProfile validation failed")) {
-      const matches = raw.match(/`([^`]+)`/g);
-      const fields = matches?.map((field) => field.replace(/`/g, "")) || [];
-      toast.error(`Please fill all required fields: ${fields.join(", ")}`);
-    } else {
-      toast.error(raw);
+  // Updated to include front-end validation before moving to the next step
+  const handleNext = useCallback(() => {
+    let isValid = true;
+    if (step === 0) {
+      if (!formData.university || !formData.major || !formData.semester) {
+        toast.error("Please fill in all profile details.");
+        isValid = false;
+      }
+    } else if (step === 1) {
+      if (!formData.studyStyle || !formData.studyTime) {
+        toast.error("Please select all preferences.");
+        isValid = false;
+      }
+    } else if (step === 2) {
+      if (formData.learningStyle.length === 0) {
+        toast.error("Please select at least one learning style.");
+        isValid = false;
+      }
+    } else if (step === 3) {
+      if (formData.goals.length === 0) {
+        toast.error("Please select at least one learning goal.");
+        isValid = false;
+      }
     }
-  }
-};
 
+    if (isValid && step < steps.length - 1) {
+      setStep((prev) => prev + 1);
+    }
+  }, [step, formData]);
+
+  const handlePrev = useCallback(() => {
+    if (step > 0) {
+      setStep((prev) => prev - 1);
+    }
+  }, [step]);
+
+  // Updated to use the same submission logic as EducatorOnboarding
+  const handleSubmit = useCallback(async () => {
+    // Final validation for the last step
+    if (formData.discipline.length === 0) {
+      toast.error("Please select at least one discipline.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // 1. Submit student-specific profile data
+      await completeStudentOnboarding(formData);
+
+      // 2. Mark general user onboarding as complete in the AuthContext and on the User model in backend
+      const updateResult = await updateUserOnboardingStatus();
+      if (!updateResult.success) {
+        throw new Error(updateResult.message || "Failed to update general onboarding status.");
+      }
+
+      toast.success("Onboarding completed!");
+      navigate("/StudentDashboard");
+    } catch (error) {
+      console.error("Student onboarding submission error:", error);
+      toast.error(
+        error?.response?.data?.message || "Submission failed. Please try again."
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [formData, navigate, updateUserOnboardingStatus]);
+
+  // Render nothing if auth is loading, or if conditions for redirect are met
+  if (authLoading || (!isAuthenticated && !authLoading) || (user && user.role === 'student' && isOnboardingComplete)) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-gray-100 dark:bg-gray-900">
@@ -120,7 +200,7 @@ const handleSubmit = async () => {
           {steps.map((s, index) => (
             <div key={s.label} className="flex flex-col items-center text-sm font-medium relative z-10">
               <div
-                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-bold ${
+                className={`flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-bold transition-all duration-300 ${
                   index === step
                     ? "bg-indigo-500 text-white border-indigo-500"
                     : index < step
@@ -289,7 +369,15 @@ const handleSubmit = async () => {
             {step < steps.length - 1 ? (
               <Button onClick={handleNext}>Continue</Button>
             ) : (
-              <Button onClick={handleSubmit}>Finish</Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...
+                  </>
+                ) : (
+                  "Finish"
+                )}
+              </Button>
             )}
           </div>
         </CardContent>

@@ -32,13 +32,24 @@ export const register = asyncHandler(async (req, res) => {
         email,
         password,
         role,
-        status: role === "educator" ? "pending" : "approved"  
+        status: role === "educator" ? "pending" : "approved",
+        onboardingCompleted: false,  
     });
 
     if(user) {
         generateToken(res, user._id)
 
-        const newUser = await User.findOne({ email }).select("-password"); 
+            const newUser = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      onboardingCompleted: user.onboardingCompleted,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+    
         res.status(201).json(newUser);
        
     } else{
@@ -63,12 +74,80 @@ export const login = asyncHandler(async (req, res) => {
 
     if(user && (await user.matchPassword(password))) {
         generateToken(res, user._id);
-        const newUser = await User.findOne({ email }).select("-password"); 
-        res.status(200).json(newUser);
+    const loggedInUser = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      onboardingCompleted: user.onboardingCompleted, // Include this in the response
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+    res.status(200).json(loggedInUser);
     } else{
         res.status(404);
         throw new Error('Invalid email or password');
     }
+});
+
+// @desc    Update user's onboarding status
+// @route   PUT /api/users/complete-onboarding
+// @access  Private (requires authentication)
+export const completeOnboarding = asyncHandler(async (req, res) => {
+   // Check if req.user is populated by the 'protect' middleware
+  if (!req.user || !req.user._id) {
+    res.status(401);
+    throw new Error('Not authorized, user ID missing from request token.');
+  }
+
+  const user = await User.findById(req.user._id);
+
+  if (user) {
+   
+    // Check if onboarding is already complete to avoid unnecessary updates/errors
+    if (user.onboardingCompleted) {
+      return res.status(200).json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        onboardingCompleted: user.onboardingCompleted,
+        message: 'Onboarding already marked as complete.'
+      });
+    }
+
+    user.onboardingCompleted = true; // Set to true
+
+    try {
+      const updatedUser = await user.save();
+      res.json({
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        status: updatedUser.status,
+        onboardingCompleted: updatedUser.onboardingCompleted, // Should be true
+        message: 'Onboarding marked as complete.'
+      });
+    } catch (saveError) {
+      console.error("Backend: ERROR during user.save() for onboarding completion:", saveError.message);
+      // Log validation errors specifically
+      if (saveError.name === 'ValidationError') {
+        const messages = Object.values(saveError.errors).map(val => val.message);
+        console.error("Backend: Mongoose Validation Errors:", messages);
+        res.status(400);
+        throw new Error(`Validation failed: ${messages.join(', ')}`);
+      }
+      res.status(500);
+      throw new Error('Failed to update user onboarding status in database.');
+    }
+  } else {
+    console.error(`Backend: ERROR - User not found in DB for ID: ${req.user._id}`);
+    res.status(404);
+    throw new Error('User not found.');
+  }
 });
 
 // Logout

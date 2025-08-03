@@ -29,3 +29,8 @@ export const resetPassword = async (token, data) => {
   const res = await API.put(`/auth/reset-password/${token}`, data);
   return res.data;
 };
+
+export const completeOnboardingAPI = async () => {
+  const res = await API.put("/auth/complete-onboarding");
+  return res.data; 
+};

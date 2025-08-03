@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+// Corrected import paths from absolute aliases to relative paths to resolve compilation errors.
 import { createPageUrl } from "@/utils";
+import { useAuth } from "../context/AuthContext";
+
 import { 
   BookOpen, 
   Home, 
   User, 
   Heart, 
   GraduationCap, 
-  Settings, 
   Sun, 
   Moon, 
   Menu,
@@ -16,19 +18,30 @@ import {
   Users,
   BarChart3,
   Sparkles,
-  CreditCard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { User as UserEntity } from "@/entities/User";
 
-const navigation = [
+// Define all possible navigation links. We will render them conditionally.
+
+// Links for all authenticated users
+const primaryNavigation = [
   { name: "Home", href: createPageUrl("Home"), icon: Home },
-  { name: "Dashboard", href: createPageUrl("Dashboard"), icon: User },
+  { name: "Courses", href: createPageUrl("Courses"), icon: BookOpen },
+];
+
+// Links specific to admin
+const adminNavigation = [
+  { name: "Admin Panel", href: createPageUrl("AdminPanel"), icon: User },
+];
+// Links specific to students
+const studentNavigation = [
+  { name: "Dashboard", href: createPageUrl("StudentDashboard"), icon: User },
   { name: "Wellness", href: createPageUrl("Wellness"), icon: Heart },
 ];
 
+// Links specific to educators
 const educatorNavigation = [
-  { name: "Educator Dashboard", href: createPageUrl("EducatorDashboard"), icon: GraduationCap },
+  { name: "Dashboard", href: createPageUrl("EducatorDashboard"), icon: GraduationCap },
   { name: "Create Course", href: createPageUrl("CreateCourse"), icon: BookOpen },
   { name: "Analytics", href: createPageUrl("Analytics"), icon: BarChart3 },
   { name: "AI Content", href: createPageUrl("AIContentGenerator"), icon: Sparkles },
@@ -36,42 +49,33 @@ const educatorNavigation = [
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  // Get user, isAuthenticated, and the login/logout functions from the AuthContext
+  const { user, isAuthenticated, login, logout } = useAuth(); 
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  const loadUser = async () => {
-    try {
-      const userData = await UserEntity.me();
-      setUser(userData);
-    } catch (error) {
-      console.log("User not authenticated");
-    }
-  };
 
   const toggleTheme = () => {
     setIsDarkMode(!isDarkMode);
   };
 
-  const handleBecomeEducator = async () => {
+  const getNavigationLinks = () => {
+    let links = [...primaryNavigation];
     if (user) {
-      await UserEntity.updateMyUserData({ is_educator: true });
-      setUser({ ...user, is_educator: true });
+      // Add user-specific links if authenticated
+      if (user.role === "student") {
+        links = [...links, ...studentNavigation];
+      } else if (user.role === "educator") {
+        links = [...links, ...educatorNavigation];
+      }else if (user.role === "admin") {
+        links = [...links, ...adminNavigation];
+      } else{
+        links = [...links, ...primaryNavigation];
+      }
     }
+    return links;
   };
 
-  const handleLogin = async () => {
-    await UserEntity.login();
-  };
-
-  const handleLogout = async () => {
-    await UserEntity.logout();
-    setUser(null);
-  };
+  const navLinks = getNavigationLinks();
 
   return (
     <div className={isDarkMode ? "dark" : ""}>
@@ -119,7 +123,8 @@ export default function Layout({ children, currentPageName }) {
 
               {/* Desktop Navigation */}
               <nav className="hidden md:flex items-center space-x-8">
-                {navigation.map((item) => (
+                {/* Render navigation based on user role */}
+                {navLinks.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}
@@ -133,25 +138,7 @@ export default function Layout({ children, currentPageName }) {
                     {item.name}
                   </Link>
                 ))}
-                
-                {user?.is_educator && (
-                  <>
-                    {educatorNavigation.map((item) => (
-                      <Link
-                        key={item.name}
-                        to={item.href}
-                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          location.pathname === item.href || location.pathname === item.href.split('?')[0]
-                            ? "bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
-                            : "text-gray-700 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400"
-                        }`}
-                      >
-                        <item.icon className="w-4 h-4" />
-                        {item.name}
-                      </Link>
-                    ))}
-                  </>
-                )}
+
               </nav>
 
               {/* Right side actions */}
@@ -165,30 +152,18 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
                 )}
 
-                {user && !user.is_educator && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleBecomeEducator}
-                    className="hidden sm:flex items-center gap-2"
-                  >
-                    <Users className="w-4 h-4" />
-                    Become Educator
-                  </Button>
-                )}
-
                 {/* Auth Button */}
-                {user ? (
+                {isAuthenticated ? (
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-gray-600 dark:text-gray-400 hidden sm:block">
                       {user.full_name}
                     </span>
-                    <Button variant="outline" size="sm" onClick={handleLogout}>
+                    <Button variant="outline" size="sm" onClick={logout}>
                       Logout
                     </Button>
                   </div>
                 ) : (
-                  <Button size="sm" onClick={handleLogin}>
+                  <Button size="sm">
                     <Link to={'/login'}>
                     Login
                     </Link>
@@ -230,7 +205,7 @@ export default function Layout({ children, currentPageName }) {
           {isMobileMenuOpen && (
             <div className="md:hidden bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
               <div className="px-4 py-3 space-y-2">
-                {navigation.map((item) => (
+                {navLinks.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}
@@ -246,26 +221,6 @@ export default function Layout({ children, currentPageName }) {
                   </Link>
                 ))}
                 
-                {user?.is_educator && (
-                  <>
-                    {educatorNavigation.map((item) => (
-                      <Link
-                        key={item.name}
-                        to={item.href}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-base font-medium transition-colors ${
-                          location.pathname === item.href || location.pathname === item.href.split('?')[0]
-                            ? "bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400"
-                            : "text-gray-700 hover:text-purple-600 dark:text-gray-300 dark:hover:text-purple-400"
-                        }`}
-                        onClick={() => setIsMobileMenuOpen(false)}
-                      >
-                        <item.icon className="w-5 h-5" />
-                        {item.name}
-                      </Link>
-                    ))}
-                  </>
-                )}
-                
                 {user?.is_admin && (
                   <Link to={createPageUrl("AdminPanel")}>
                     <Button variant="outline" className="w-full justify-start gap-2 mt-2">
@@ -273,17 +228,6 @@ export default function Layout({ children, currentPageName }) {
                       Admin Panel
                     </Button>
                   </Link>
-                )}
-                
-                {user && !user.is_educator && (
-                  <Button 
-                    variant="outline" 
-                    onClick={handleBecomeEducator}
-                    className="w-full justify-start gap-2 mt-2"
-                  >
-                    <Users className="w-4 h-4" />
-                    Become Educator
-                  </Button>
                 )}
               </div>
             </div>
