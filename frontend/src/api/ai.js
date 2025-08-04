@@ -1,12 +1,4 @@
-// frontend/src/api/ai.js
-// Assuming you have an API instance configured for your backend, e.g., with axios
-// For example, if you have a file like `frontend/src/lib/axios.js` that exports an instance:
-// import API from './axios'; // Adjust path as needed
-
-// Placeholder for your API instance. Replace with your actual setup.
-// If you're using plain fetch or axios directly, adjust accordingly.
 import API from "./axios"; 
-
 
 
 export const getWellnessInsights = async (data) => {
@@ -26,6 +18,48 @@ export const getAICounselorResponse = async (chatHistory) => {
     return response.response;
   } catch (error) {
     console.error('Frontend API Error - getAICounselorResponse:', error);
+    throw error;
+  }
+};
+
+export const generateCourseOutline = async (params) => {
+  try {
+    const response = await API.post('/ai/generate-course-outline', params);
+    return response.data.outline;
+  } catch (error) {
+    console.error('Frontend API Error - generateCourseOutline:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+export const writeCourseDescription = async (params) => {
+  try {
+    const response = await API.post('/ai/write-course-description', params);
+    return response.data.description;
+  } catch (error) {
+    console.error('Frontend API Error - writeCourseDescription:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+
+export const createCourseThumbnailIdea = async (params) => {
+  try {
+    const response = await API.post('/ai/create-course-thumbnail-idea', params);
+    return response.data.thumbnailIdea;
+  } catch (error) {
+    console.error('Frontend API Error - createCourseThumbnailIdea:', error.response ? error.response.data : error.message);
+    throw error;
+  }
+};
+
+
+export const buildQuizAssessment = async (params) => {
+  try {
+    const response = await API.post('/ai/build-quiz-assessment', params);
+    return response.data.quiz;
+  } catch (error) {
+    console.error('Frontend API Error - buildQuizAssessment:', error.response ? error.response.data : error.message);
     throw error;
   }
 };

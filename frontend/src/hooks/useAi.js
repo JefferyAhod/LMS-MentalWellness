@@ -1,18 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getWellnessInsights, getAICounselorResponse } from '../api/ai.js'; // Path adjusted for new structure
+import { getWellnessInsights, getAICounselorResponse, generateCourseOutline, writeCourseDescription, createCourseThumbnailIdea, buildQuizAssessment } from '../api/ai.js'; 
 
-/**
- * Custom hook to fetch and manage AI-generated wellness insights.
- *
- * @param {object} moodData - An object containing the mood data needed for insights.
- * Expected properties: { moodEntries, todaysMood, weeklyAverage, userId, userNotes }
- * @param {boolean} triggerFetch - A boolean to control when to trigger the fetch (e.g., when data is ready).
- * @returns {object} An object containing:
- * - insight: The AI-generated insight string.
- * - isLoading: Boolean indicating if the insight is currently being loaded.
- * - error: Any error that occurred during fetching.
- * - refetchInsights: A function to manually re-fetch insights.
- */
 export const useWellnessInsights = (moodData, triggerFetch = false) => {
   const [insight, setInsight] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +38,6 @@ export const useWellnessInsights = (moodData, triggerFetch = false) => {
 
   return { insight, isLoading, error, refetchInsights: fetchInsight };
 };
-
 
 
 export const useAICounselorChat = () => {
@@ -98,4 +85,205 @@ export const useAICounselorChat = () => {
   }, []);
 
   return { chatHistory, isTyping, error, sendMessage, clearChat };
+};
+
+// --- Course Outline Generator Hook (For Educators) ---
+export const useCourseOutlineGenerator = () => {
+  const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState('Beginner');
+  const [duration, setDuration] = useState('');
+  const [audience, setAudience] = useState('');
+  const [styleTone, setStyleTone] = useState('Informative');
+  const [additionalContext, setAdditionalContext] = useState('');
+  const [outline, setOutline] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const generateOutline = useCallback(async () => {
+    if (!topic.trim()) {
+      setError('Topic/Subject is required.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setOutline(null);
+
+    try {
+      const generatedOutline = await generateCourseOutline({
+        topic,
+        difficulty,
+        duration: duration ? parseInt(duration) : undefined,
+        audience,
+        styleTone,
+        additionalContext,
+      });
+      setOutline(generatedOutline);
+    } catch (err) {
+      console.error('Failed to generate course outline:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to generate course outline. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [topic, difficulty, duration, audience, styleTone, additionalContext]);
+
+  return {
+    topic, setTopic,
+    difficulty, setDifficulty,
+    duration, setDuration,
+    audience, setAudience,
+    styleTone, setStyleTone,
+    additionalContext, setAdditionalContext,
+    outline, isLoading, error, generateOutline
+  };
+};
+
+// --- Course Description Writer Hook (For Educators) ---
+export const useCourseDescriptionWriter = () => {
+  const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState('Beginner');
+  const [duration, setDuration] = useState('');
+  const [audience, setAudience] = useState('');
+  const [styleTone, setStyleTone] = useState('Informative');
+  const [additionalContext, setAdditionalContext] = useState('');
+  const [description, setDescription] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const writeDescription = useCallback(async () => {
+    if (!topic.trim()) {
+      setError('Topic/Subject is required.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setDescription(null);
+
+    try {
+      const generatedDescription = await writeCourseDescription({
+        topic,
+        difficulty,
+        duration: duration ? parseInt(duration) : undefined,
+        audience,
+        styleTone,
+        additionalContext,
+      });
+      setDescription(generatedDescription);
+    } catch (err) {
+      console.error('Failed to write course description:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to write course description. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [topic, difficulty, duration, audience, styleTone, additionalContext]);
+
+  return {
+    topic, setTopic,
+    difficulty, setDifficulty,
+    duration, setDuration,
+    audience, setAudience,
+    styleTone, setStyleTone,
+    additionalContext, setAdditionalContext,
+    description, isLoading, error, writeDescription
+  };
+};
+
+// --- Course Thumbnail Idea Creator Hook (For Educators) ---
+export const useCourseThumbnailIdeaCreator = () => {
+  const [topic, setTopic] = useState('');
+  const [styleTone, setStyleTone] = useState('Creative');
+  const [additionalContext, setAdditionalContext] = useState('');
+  const [thumbnailIdea, setThumbnailIdea] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const createThumbnailIdea = useCallback(async () => {
+    if (!topic.trim()) {
+      setError('Topic/Subject is required.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setThumbnailIdea(null);
+
+    try {
+      const generatedIdea = await createCourseThumbnailIdea({
+        topic,
+        styleTone,
+        additionalContext,
+      });
+      setThumbnailIdea(generatedIdea);
+    } catch (err) {
+      console.error('Failed to create thumbnail idea:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to create thumbnail idea. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [topic, styleTone, additionalContext]);
+
+  return {
+    topic, setTopic,
+    styleTone, setStyleTone,
+    additionalContext, setAdditionalContext,
+    thumbnailIdea, isLoading, error, createThumbnailIdea
+  };
+};
+
+// --- Quiz & Assessment Builder Hook (For Educators) ---
+export const useQuizAssessmentBuilder = () => {
+  const [topic, setTopic] = useState('');
+  const [difficulty, setDifficulty] = useState('Beginner');
+  const [numQuestions, setNumQuestions] = useState('');
+  const [questionTypes, setQuestionTypes] = useState([]); // e.g., ['multiple-choice', 'true-false']
+  const [additionalContext, setAdditionalContext] = useState('');
+  const [quiz, setQuiz] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const buildQuiz = useCallback(async () => {
+    if (!topic.trim() || !numQuestions) {
+      setError('Topic/Subject and Number of Questions are required.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    setQuiz(null);
+
+    try {
+      const generatedQuiz = await buildQuizAssessment({
+        topic,
+        difficulty,
+        numQuestions: parseInt(numQuestions), // Ensure number type
+        questionTypes,
+        additionalContext,
+      });
+      setQuiz(generatedQuiz);
+    } catch (err) {
+      console.error('Failed to build quiz/assessment:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to build quiz/assessment. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [topic, difficulty, numQuestions, questionTypes, additionalContext]);
+
+  // Helper for checkbox/multi-select question types
+  const handleQuestionTypeChange = useCallback((type) => {
+    setQuestionTypes((prevTypes) =>
+      prevTypes.includes(type)
+        ? prevTypes.filter((t) => t !== type)
+        : [...prevTypes, type]
+    );
+  }, []);
+
+  return {
+    topic, setTopic,
+    difficulty, setDifficulty,
+    numQuestions, setNumQuestions,
+    questionTypes, handleQuestionTypeChange,
+    additionalContext, setAdditionalContext,
+    quiz, isLoading, error, buildQuiz
+  };
 };
