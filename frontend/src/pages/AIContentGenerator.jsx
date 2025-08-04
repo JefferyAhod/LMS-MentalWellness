@@ -1,18 +1,19 @@
+// frontend/src/pages/AIContentGenerator.jsx
 import React, { useState } from "react";
-import { User } from "@/entities/User";
-import { Course } from "@/entities/Course";
-import { InvokeLLM, GenerateImage } from "@/integrations/Core";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { 
-  Sparkles, 
-  FileText, 
-  Image, 
-  Video, 
+import { useNavigate } from 'react-router-dom'; // Import useNavigate for navigation
+
+// Import UI components (assuming they are from a UI library like shadcn/ui)
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
+import { Badge } from "../components/ui/badge";
+import {
+  Sparkles,
+  FileText,
+  Image,
+  Video,
   BookOpen,
   Wand2,
   Download,
@@ -20,33 +21,40 @@ import {
   RefreshCw
 } from "lucide-react";
 
+// Import custom hooks for AI features
+import {
+  useCourseOutlineGenerator,
+  useCourseDescriptionWriter,
+  useCourseThumbnailIdeaCreator,
+  useQuizAssessmentBuilder
+}  from "@/hooks/useAi";
+
+// Import AuthContext to get user role
+import { useAuth } from "../context/AuthContext";
+
 export default function AIContentGenerator() {
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const navigate = useNavigate(); // Initialize navigate hook
   const [selectedTool, setSelectedTool] = useState("course-outline");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedContent, setGeneratedContent] = useState(null);
-  
-  const [inputs, setInputs] = useState({
-    topic: "",
-    level: "beginner",
-    duration: "4",
-    style: "professional",
-    audience: "",
-    additionalContext: ""
-  });
 
-  React.useEffect(() => {
-    loadUser();
-  }, []);
+  // Initialize all AI feature hooks
+  const outlineHook = useCourseOutlineGenerator();
+  const descriptionHook = useCourseDescriptionWriter();
+  const thumbnailHook = useCourseThumbnailIdeaCreator();
+  const quizHook = useQuizAssessmentBuilder();
 
-  const loadUser = async () => {
-    try {
-      const userData = await User.me();
-      setUser(userData);
-    } catch (error) {
-      console.log("User not authenticated");
+  // Determine which hook is active based on selectedTool
+  const activeHook = (() => {
+    switch (selectedTool) {
+      case "course-outline": return outlineHook;
+      case "course-description": return descriptionHook;
+      case "thumbnail-generator": return thumbnailHook;
+      case "quiz-generator": return quizHook;
+      default: return {}; // Fallback
     }
-  };
+  })();
+
+  const { isLoading, error } = activeHook; // Get isLoading and error from the active hook
 
   const tools = [
     {
@@ -64,7 +72,7 @@ export default function AIContentGenerator() {
     {
       id: "thumbnail-generator",
       name: "Course Thumbnail Creator",
-      description: "Generate eye-catching thumbnails for your courses",
+      description: "Generate eye-catching thumbnail ideas for your courses", // Changed description to reflect textual idea generation
       icon: Image
     },
     {
@@ -75,245 +83,583 @@ export default function AIContentGenerator() {
     }
   ];
 
-  const generateCourseOutline = async () => {
-    const prompt = `Create a comprehensive course outline for a ${inputs.level} level course on "${inputs.topic}". 
-    The course should be approximately ${inputs.duration} hours long and target ${inputs.audience || 'general learners'}.
-    
-    Additional context: ${inputs.additionalContext}
-    
-    Please structure the response as a detailed course outline with:
-    1. Course title
-    2. Course description (2-3 paragraphs)
-    3. Learning objectives (5-7 points)
-    4. Prerequisites
-    5. Detailed curriculum with chapters and lessons
-    6. Estimated time for each section
-    
-    Make it engaging and practical for ${inputs.audience || 'students'}.`;
-
-    const response = await InvokeLLM({
-      prompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          description: { type: "string" },
-          learning_objectives: { type: "array", items: { type: "string" } },
-          prerequisites: { type: "array", items: { type: "string" } },
-          chapters: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                title: { type: "string" },
-                duration_minutes: { type: "number" },
-                lessons: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      title: { type: "string" },
-                      duration_minutes: { type: "number" },
-                      description: { type: "string" }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          total_duration_hours: { type: "number" }
-        }
-      }
-    });
-
-    return response;
-  };
-
-  const generateCourseDescription = async () => {
-    const prompt = `Write a compelling course description for a ${inputs.level} level course on "${inputs.topic}".
-    The description should be marketing-focused and persuasive, targeting ${inputs.audience || 'learners'}.
-    
-    Style: ${inputs.style}
-    Additional context: ${inputs.additionalContext}
-    
-    Include:
-    - Hook opening paragraph
-    - What students will learn (benefits-focused)
-    - Who this course is for
-    - Course structure overview
-    - Call to action
-    
-    Make it engaging and conversion-optimized.`;
-
-    const response = await InvokeLLM({
-      prompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          short_description: { type: "string" },
-          long_description: { type: "string" },
-          key_benefits: { type: "array", items: { type: "string" } },
-          target_audience: { type: "array", items: { type: "string" } },
-          course_highlights: { type: "array", items: { type: "string" } }
-        }
-      }
-    });
-
-    return response;
-  };
-
-  const generateThumbnail = async () => {
-    const prompt = `Create a professional, modern course thumbnail for a ${inputs.level} level course on "${inputs.topic}".
-    Style: ${inputs.style}, clean design, high contrast text, educational theme.
-    Include course topic prominently, use professional colors (blues, greens, or purples).
-    No people in the image, focus on abstract or symbolic representations of the topic.`;
-
-    const response = await GenerateImage({ prompt });
-    return { thumbnail_url: response.url, prompt_used: prompt };
-  };
-
-  const generateQuiz = async () => {
-    const prompt = `Create a comprehensive quiz for a ${inputs.level} level course on "${inputs.topic}".
-    Target audience: ${inputs.audience || 'general learners'}
-    
-    Generate:
-    - 10 multiple choice questions (4 options each)
-    - 5 true/false questions  
-    - 3 short answer questions
-    
-    Questions should test both theoretical knowledge and practical application.
-    Include explanations for correct answers.`;
-
-    const response = await InvokeLLM({
-      prompt,
-      response_json_schema: {
-        type: "object",
-        properties: {
-          multiple_choice: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                question: { type: "string" },
-                options: { type: "array", items: { type: "string" } },
-                correct_answer: { type: "number" },
-                explanation: { type: "string" }
-              }
-            }
-          },
-          true_false: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                question: { type: "string" },
-                correct_answer: { type: "boolean" },
-                explanation: { type: "string" }
-              }
-            }
-          },
-          short_answer: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                question: { type: "string" },
-                sample_answer: { type: "string" },
-                grading_criteria: { type: "array", items: { type: "string" } }
-              }
-            }
-          }
-        }
-      }
-    });
-
-    return response;
-  };
-
   const handleGenerate = async () => {
-    if (!inputs.topic.trim()) return;
+    // Validate topic based on the active hook's topic state
+    // Each hook has its own topic state and validation
+    if (!activeHook.topic || !activeHook.topic.trim()) {
+        // The individual hooks already handle this validation and set their own error state.
+        // This outer check might be redundant if hooks are robust, but can act as a quick UI feedback.
+        return;
+    }
 
-    setIsGenerating(true);
-    try {
-      let result;
-      
-      switch (selectedTool) {
-        case "course-outline":
-          result = await generateCourseOutline();
-          break;
-        case "course-description":
-          result = await generateCourseDescription();
-          break;
-        case "thumbnail-generator":
-          result = await generateThumbnail();
-          break;
-        case "quiz-generator":
-          result = await generateQuiz();
-          break;
-        default:
-          result = { error: "Unknown tool selected" };
-      }
-      
-      setGeneratedContent(result);
-    } catch (error) {
-      console.error("Error generating content:", error);
-      setGeneratedContent({ error: "Failed to generate content. Please try again." });
-    } finally {
-      setIsGenerating(false);
+    // Call the appropriate generation function from the active hook
+    switch (selectedTool) {
+      case "course-outline":
+        await outlineHook.generateOutline();
+        break;
+      case "course-description":
+        await descriptionHook.writeDescription();
+        break;
+      case "thumbnail-generator":
+        await thumbnailHook.createThumbnailIdea();
+        break;
+      case "quiz-generator":
+        await quizHook.buildQuiz();
+        break;
+      default:
+        // This case should ideally not be reached if selectedTool is always one of the defined IDs
+        console.error("Unknown tool selected:", selectedTool);
     }
   };
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-  };
-
-  const createCourseFromOutline = async () => {
-    if (!generatedContent || selectedTool !== "course-outline") return;
-
-    try {
-      const courseData = {
-        title: generatedContent.title,
-        description: generatedContent.description,
-        instructor_id: user.id,
-        instructor_name: user.full_name,
-        category: "other",
-        level: inputs.level,
-        duration: generatedContent.total_duration_hours * 60,
-        chapters: generatedContent.chapters.map(chapter => ({
-          title: chapter.title,
-          lectures: chapter.lessons.map(lesson => ({
-            title: lesson.title,
-            video_url: "",
-            duration: lesson.duration_minutes,
-            is_preview_free: false
-          }))
-        })),
-        is_published: false,
-        price: 0
-      };
-
-      await Course.create(courseData);
-      alert("Course outline created successfully! You can find it in your educator dashboard.");
-    } catch (error) {
-      console.error("Error creating course:", error);
-      alert("Failed to create course. Please try again.");
+    if (text) {
+      // Using document.execCommand('copy') for broader compatibility in iframes
+      const el = document.createElement('textarea');
+      el.value = text;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      alert('Content copied to clipboard!');
     }
   };
 
-  if (!user) {
+  // New function to handle navigating to course creation with pre-filled data
+  const handleCreateCourseFromOutline = () => {
+    if (!outlineHook.outline) {
+      alert("Please generate a course outline first.");
+      return;
+    }
+
+    // Prepare data to pass to the course creation page
+    // Map AI outline structure to your Course form structure
+    const prefillData = {
+      // Basic Info fields
+      title: outlineHook.outline.title || outlineHook.topic, // Use AI's title if available, else topic
+      description: outlineHook.outline.description || '', // AI might not provide this at top level
+      level: outlineHook.difficulty, // From AI generation inputs
+
+      // Curriculum fields
+      chapters: outlineHook.outline.map(chapter => ({
+        title: chapter.title,
+        lectures: chapter.lessons.map(lessonTitle => ({
+          title: lessonTitle,
+          video_url: '', // Needs manual input
+          duration: 0, // Needs manual input or AI to provide
+          is_preview_free: false // Needs manual input
+        }))
+      }))
+    };
+
+    // Navigate to your course creation page, passing state
+    navigate('/CreateCourse', { state: { prefillCourseData: prefillData } });
+  };
+
+
+  // Authentication and Role Check
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Please log in to access AI tools
+            Loading user data...
           </h2>
-          <Button onClick={() => User.login()}>
-            Log In
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || user?.role !== 'educator') {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            Access Denied
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            You must be logged in as an Educator to access AI content generation tools.
+          </p>
+          <Button onClick={() => window.location.href = '/login'}>
+            Go to Login
           </Button>
         </div>
       </div>
     );
   }
+
+  // Determine the content to display in the input form based on selectedTool
+  const renderInputForm = () => {
+    switch (selectedTool) {
+      case "course-outline":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Topic/Subject *
+              </label>
+              <Input
+                value={outlineHook.topic}
+                onChange={(e) => outlineHook.setTopic(e.target.value)}
+                placeholder="e.g., React Development, Digital Marketing"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Difficulty Level
+              </label>
+              <Select value={outlineHook.difficulty} onValueChange={outlineHook.setDifficulty}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Course Duration (hours)
+              </label>
+              <Input
+                type="number"
+                value={outlineHook.duration}
+                onChange={(e) => outlineHook.setDuration(e.target.value)}
+                placeholder="4"
+                min="1"
+                max="100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Target Audience
+              </label>
+              <Input
+                value={outlineHook.audience}
+                onChange={(e) => outlineHook.setAudience(e.target.value)}
+                placeholder="e.g., web developers, marketing professionals"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Style/Tone
+              </label>
+              <Select value={outlineHook.styleTone} onValueChange={outlineHook.setStyleTone}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="casual">Casual & Friendly</SelectItem>
+                  <SelectItem value="academic">Academic</SelectItem>
+                  <SelectItem value="conversational">Conversational</SelectItem>
+                  <SelectItem value="informative">Informative</SelectItem>
+                  <SelectItem value="engaging">Engaging</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Additional Context
+              </label>
+              <Textarea
+                value={outlineHook.additionalContext}
+                onChange={(e) => outlineHook.setAdditionalContext(e.target.value)}
+                placeholder="Any specific requirements, focus areas, or constraints..."
+                rows={3}
+              />
+            </div>
+          </>
+        );
+      case "course-description":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Topic/Subject *
+              </label>
+              <Input
+                value={descriptionHook.topic}
+                onChange={(e) => descriptionHook.setTopic(e.target.value)}
+                placeholder="e.g., React Development, Digital Marketing"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Difficulty Level
+              </label>
+              <Select value={descriptionHook.difficulty} onValueChange={descriptionHook.setDifficulty}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Course Duration (hours)
+              </label>
+              <Input
+                type="number"
+                value={descriptionHook.duration}
+                onChange={(e) => descriptionHook.setDuration(e.target.value)}
+                placeholder="4"
+                min="1"
+                max="100"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Target Audience
+              </label>
+              <Input
+                value={descriptionHook.audience}
+                onChange={(e) => descriptionHook.setAudience(e.target.value)}
+                placeholder="e.g., web developers, marketing professionals"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Style/Tone
+              </label>
+              <Select value={descriptionHook.styleTone} onValueChange={descriptionHook.setStyleTone}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="casual">Casual & Friendly</SelectItem>
+                  <SelectItem value="academic">Academic</SelectItem>
+                  <SelectItem value="conversational">Conversational</SelectItem>
+                  <SelectItem value="informative">Informative</SelectItem>
+                  <SelectItem value="engaging">Engaging</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Additional Context
+              </label>
+              <Textarea
+                value={descriptionHook.additionalContext}
+                onChange={(e) => descriptionHook.setAdditionalContext(e.target.value)}
+                placeholder="Any specific details to highlight, keywords, etc."
+                rows={3}
+              />
+            </div>
+          </>
+        );
+      case "thumbnail-generator":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Course Topic *
+              </label>
+              <Input
+                value={thumbnailHook.topic}
+                onChange={(e) => thumbnailHook.setTopic(e.target.value)}
+                placeholder="e.g., Data Science, Yoga for Beginners"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Style/Tone
+              </label>
+              <Select value={thumbnailHook.styleTone} onValueChange={thumbnailHook.setStyleTone}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="creative">Creative</SelectItem>
+                  <SelectItem value="minimalist">Minimalist</SelectItem>
+                  <SelectItem value="vibrant">Vibrant</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Additional Context
+              </label>
+              <Textarea
+                value={thumbnailHook.additionalContext}
+                onChange={(e) => thumbnailHook.setAdditionalContext(e.target.value)}
+                placeholder="Key elements to include, color preferences, mood, abstract concepts, etc."
+                rows={3}
+              />
+            </div>
+          </>
+        );
+      case "quiz-generator":
+        return (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Topic *
+              </label>
+              <Input
+                value={quizHook.topic}
+                onChange={(e) => quizHook.setTopic(e.target.value)}
+                placeholder="e.g., JavaScript Fundamentals, World War II"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Difficulty Level
+              </label>
+              <Select value={quizHook.difficulty} onValueChange={quizHook.setDifficulty}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Number of Questions *
+              </label>
+              <Input
+                type="number"
+                value={quizHook.numQuestions}
+                onChange={(e) => quizHook.setNumQuestions(e.target.value)}
+                placeholder="10"
+                min="1"
+                max="50"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Question Types
+              </label>
+              <div className="flex flex-wrap gap-4">
+                {['multiple-choice', 'true-false', 'short-answer'].map(type => (
+                  <label key={type} className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-5 w-5 text-purple-600 rounded"
+                      checked={quizHook.questionTypes.includes(type)}
+                      onChange={() => quizHook.handleQuestionTypeChange(type)}
+                    />
+                    <span className="ml-2 text-gray-700 dark:text-gray-300 capitalize">{type.replace('-', ' ')}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Additional Context
+              </label>
+              <Textarea
+                value={quizHook.additionalContext}
+                onChange={(e) => quizHook.setAdditionalContext(e.target.value)}
+                placeholder="Specific concepts to cover, format requirements, etc."
+                rows={3}
+              />
+            </div>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Determine the content to display in the generated content section
+  const renderGeneratedContent = () => {
+    switch (selectedTool) {
+      case "course-outline":
+        const { outline } = outlineHook;
+        if (!outline) return null;
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Generated Course Outline
+              </h3>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => copyToClipboard(JSON.stringify(outline, null, 2))}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy JSON
+                </Button>
+                {/* New "Create Course" button */}
+                <Button size="sm" onClick={handleCreateCourseFromOutline}>
+                  <BookOpen className="w-4 h-4 mr-2" />
+                  Create Course
+                </Button>
+              </div>
+            </div>
+
+            <div className="prose dark:prose-invert max-w-none">
+              <div>
+                <h4 className="font-semibold mb-4">Course Curriculum:</h4>
+                {outline.length > 0 ? (
+                  <ol className="list-decimal pl-5 space-y-4">
+                    {outline.map((chapter, chapterIndex) => (
+                      <li key={chapterIndex} className="mb-4 border rounded-lg p-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <h5 className="font-medium">Chapter {chapterIndex + 1}: {chapter.title}</h5>
+                        </div>
+                        <div className="ml-4 space-y-2">
+                          {chapter.lessons && chapter.lessons.length > 0 ? (
+                            <ul className="list-disc pl-5">
+                              {chapter.lessons.map((lesson, lessonIndex) => (
+                                <li key={lessonIndex} className="text-gray-600 text-sm">{lesson}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-gray-600 text-sm">No lessons found for this chapter.</p>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-gray-600">No chapters generated. Try adjusting your parameters.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "course-description":
+        const { description } = descriptionHook;
+        if (!description) return null;
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Course Description</h3>
+              <Button variant="outline" size="sm" onClick={() => copyToClipboard(description)}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy
+              </Button>
+            </div>
+            <div className="space-y-6">
+              <div className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-4 rounded whitespace-pre-wrap">
+                {description}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "thumbnail-generator":
+        const { thumbnailIdea } = thumbnailHook;
+        if (!thumbnailIdea) return null;
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Generated Thumbnail Idea</h3>
+              <Button variant="outline" size="sm" onClick={() => copyToClipboard(thumbnailIdea)}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy Idea
+              </Button>
+            </div>
+            <div className="text-center">
+              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{thumbnailIdea}</p>
+              <p className="text-sm text-gray-500 mt-4">
+                Use this description to generate an actual image with an image generation tool.
+              </p>
+            </div>
+          </div>
+        );
+
+      case "quiz-generator":
+        const { quiz } = quizHook;
+        if (!quiz) return null;
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Generated Quiz</h3>
+              <Button variant="outline" size="sm" onClick={() => copyToClipboard(JSON.stringify(quiz, null, 2))}>
+                <Copy className="w-4 h-4 mr-2" />
+                Copy All
+              </Button>
+            </div>
+            <div className="space-y-6">
+              {/* Multiple Choice */}
+              {quiz.multiple_choice && quiz.multiple_choice.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Multiple Choice Questions:</h4>
+                  {quiz.multiple_choice.map((q, index) => (
+                    <div key={index} className="mb-4 p-4 border rounded-lg">
+                      <p className="font-medium mb-2">{index + 1}. {q.question}</p>
+                      <div className="space-y-1 ml-4">
+                        {q.options?.map((option, optIndex) => (
+                          <div key={optIndex} className={`text-sm ${optIndex === q.correct_answer ? 'text-green-600 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
+                            {String.fromCharCode(65 + optIndex)}. {option}
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-sm text-blue-600 mt-2">
+                        <strong>Explanation:</strong> {q.explanation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* True/False */}
+              {quiz.true_false && quiz.true_false.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">True/False Questions:</h4>
+                  {quiz.true_false.map((q, index) => (
+                    <div key={index} className="mb-4 p-4 border rounded-lg">
+                      <p className="font-medium mb-2">{index + 1}. {q.question}</p>
+                      <p className="text-sm text-green-600">
+                        <strong>Answer:</strong> {q.correct_answer ? 'True' : 'False'}
+                      </p>
+                      <p className="text-sm text-blue-600 mt-2">
+                        <strong>Explanation:</strong> {q.explanation}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Short Answer */}
+              {quiz.short_answer && quiz.short_answer.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Short Answer Questions:</h4>
+                  {quiz.short_answer.map((q, index) => (
+                    <div key={index} className="mb-4 p-4 border rounded-lg">
+                      <p className="font-medium mb-2">{index + 1}. {q.question}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                        <strong>Sample Answer:</strong> {q.sample_answer}
+                      </p>
+                      <div className="text-sm text-blue-600">
+                        <strong>Grading Criteria:</strong>
+                        <ul className="list-disc list-inside ml-2">
+                          {q.grading_criteria?.map((criteria, cIndex) => (
+                            <li key={cIndex}>{criteria}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -336,11 +682,11 @@ export default function AIContentGenerator() {
         {/* Tool Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           {tools.map((tool) => (
-            <Card 
+            <Card
               key={tool.id}
               className={`cursor-pointer transition-all border-2 ${
-                selectedTool === tool.id 
-                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' 
+                selectedTool === tool.id
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
               }`}
               onClick={() => setSelectedTool(tool.id)}
@@ -371,95 +717,15 @@ export default function AIContentGenerator() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Topic/Subject *
-                  </label>
-                  <Input
-                    value={inputs.topic}
-                    onChange={(e) => setInputs(prev => ({ ...prev, topic: e.target.value }))}
-                    placeholder="e.g., React Development, Digital Marketing"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Difficulty Level
-                  </label>
-                  <Select value={inputs.level} onValueChange={(value) => setInputs(prev => ({ ...prev, level: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Beginner</SelectItem>
-                      <SelectItem value="intermediate">Intermediate</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedTool === "course-outline" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Course Duration (hours)
-                    </label>
-                    <Input
-                      type="number"
-                      value={inputs.duration}
-                      onChange={(e) => setInputs(prev => ({ ...prev, duration: e.target.value }))}
-                      placeholder="4"
-                      min="1"
-                      max="100"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Target Audience
-                  </label>
-                  <Input
-                    value={inputs.audience}
-                    onChange={(e) => setInputs(prev => ({ ...prev, audience: e.target.value }))}
-                    placeholder="e.g., web developers, marketing professionals"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Style/Tone
-                  </label>
-                  <Select value={inputs.style} onValueChange={(value) => setInputs(prev => ({ ...prev, style: value }))}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="professional">Professional</SelectItem>
-                      <SelectItem value="casual">Casual & Friendly</SelectItem>
-                      <SelectItem value="academic">Academic</SelectItem>
-                      <SelectItem value="conversational">Conversational</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Additional Context
-                  </label>
-                  <Textarea
-                    value={inputs.additionalContext}
-                    onChange={(e) => setInputs(prev => ({ ...prev, additionalContext: e.target.value }))}
-                    placeholder="Any specific requirements, focus areas, or constraints..."
-                    rows={3}
-                  />
-                </div>
+                {renderInputForm()} {/* Render the dynamic input form */}
 
                 <Button
                   onClick={handleGenerate}
-                  disabled={!inputs.topic.trim() || isGenerating}
+                  // Disable based on active hook's loading state and topic validation
+                  disabled={isLoading || !activeHook.topic || !activeHook.topic.trim()}
                   className="w-full bg-purple-600 hover:bg-purple-700"
                 >
-                  {isGenerating ? (
+                  {isLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                       Generating...
@@ -482,235 +748,43 @@ export default function AIContentGenerator() {
                 <CardTitle>Generated Content</CardTitle>
               </CardHeader>
               <CardContent>
-                {!generatedContent ? (
-                  <div className="text-center py-12">
-                    <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      Ready to Generate
-                    </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
-                      Fill in the parameters and click generate to create AI-powered content
-                    </p>
-                  </div>
-                ) : generatedContent.error ? (
+                {isLoading && ( // Show loading spinner if any tool is loading
+                    <div className="text-center py-12">
+                        <RefreshCw className="w-12 h-12 text-purple-500 mx-auto mb-4 animate-spin" />
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            Generating Content...
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400">
+                            Please wait while AI creates your content.
+                        </p>
+                    </div>
+                )}
+
+                {!isLoading && error && ( // Show error if there's an error
                   <div className="text-center py-12">
                     <div className="text-red-500 mb-4">Error generating content</div>
                     <p className="text-gray-600 dark:text-gray-400">
-                      {generatedContent.error}
+                      {error}
                     </p>
                   </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Course Outline Results */}
-                    {selectedTool === "course-outline" && (
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                            {generatedContent.title}
-                          </h3>
-                          <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={() => copyToClipboard(JSON.stringify(generatedContent, null, 2))}>
-                              <Copy className="w-4 h-4 mr-2" />
-                              Copy
-                            </Button>
-                            <Button size="sm" onClick={createCourseFromOutline}>
-                              <BookOpen className="w-4 h-4 mr-2" />
-                              Create Course
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="prose dark:prose-invert max-w-none">
-                          <p className="text-gray-600 dark:text-gray-400 mb-4">
-                            {generatedContent.description}
-                          </p>
-                          
-                          <div className="grid md:grid-cols-2 gap-4 mb-6">
-                            <div>
-                              <h4 className="font-semibold mb-2">Learning Objectives:</h4>
-                              <ul className="list-disc list-inside space-y-1">
-                                {generatedContent.learning_objectives?.map((obj, index) => (
-                                  <li key={index} className="text-sm">{obj}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div>
-                              <h4 className="font-semibold mb-2">Prerequisites:</h4>
-                              <ul className="list-disc list-inside space-y-1">
-                                {generatedContent.prerequisites?.map((req, index) => (
-                                  <li key={index} className="text-sm">{req}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
+                )}
 
-                          <div>
-                            <h4 className="font-semibold mb-4">Course Curriculum:</h4>
-                            {generatedContent.chapters?.map((chapter, chapterIndex) => (
-                              <div key={chapterIndex} className="mb-4 border rounded-lg p-4">
-                                <div className="flex justify-between items-center mb-2">
-                                  <h5 className="font-medium">Chapter {chapterIndex + 1}: {chapter.title}</h5>
-                                  <Badge variant="outline">{chapter.duration_minutes} min</Badge>
-                                </div>
-                                <div className="ml-4 space-y-2">
-                                  {chapter.lessons?.map((lesson, lessonIndex) => (
-                                    <div key={lessonIndex} className="flex justify-between items-center text-sm">
-                                      <span>{lesson.title}</span>
-                                      <span className="text-gray-500">{lesson.duration_minutes} min</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Course Description Results */}
-                    {selectedTool === "course-description" && (
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Course Description</h3>
-                          <Button variant="outline" size="sm" onClick={() => copyToClipboard(generatedContent.long_description)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy
-                          </Button>
-                        </div>
-                        
-                        <div className="space-y-6">
-                          <div>
-                            <h4 className="font-semibold mb-2">Short Description:</h4>
-                            <p className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-3 rounded">
-                              {generatedContent.short_description}
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <h4 className="font-semibold mb-2">Full Description:</h4>
-                            <div className="text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-4 rounded whitespace-pre-wrap">
-                              {generatedContent.long_description}
-                            </div>
-                          </div>
-
-                          <div className="grid md:grid-cols-2 gap-4">
-                            <div>
-                              <h4 className="font-semibold mb-2">Key Benefits:</h4>
-                              <ul className="list-disc list-inside space-y-1">
-                                {generatedContent.key_benefits?.map((benefit, index) => (
-                                  <li key={index} className="text-sm text-gray-600 dark:text-gray-400">{benefit}</li>
-                                ))}
-                              </ul>
-                            </div>
-                            <div>
-                              <h4 className="font-semibold mb-2">Target Audience:</h4>
-                              <ul className="list-disc list-inside space-y-1">
-                                {generatedContent.target_audience?.map((audience, index) => (
-                                  <li key={index} className="text-sm text-gray-600 dark:text-gray-400">{audience}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Thumbnail Results */}
-                    {selectedTool === "thumbnail-generator" && (
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Generated Thumbnail</h3>
-                          <Button variant="outline" size="sm">
-                            <Download className="w-4 h-4 mr-2" />
-                            Download
-                          </Button>
-                        </div>
-                        
-                        <div className="text-center">
-                          <img 
-                            src={generatedContent.thumbnail_url} 
-                            alt="Generated thumbnail"
-                            className="max-w-full h-auto rounded-lg shadow-lg mx-auto mb-4"
-                          />
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Prompt used: {generatedContent.prompt_used}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Quiz Results */}
-                    {selectedTool === "quiz-generator" && (
-                      <div>
-                        <div className="flex justify-between items-center mb-4">
-                          <h3 className="text-xl font-bold text-gray-900 dark:text-white">Generated Quiz</h3>
-                          <Button variant="outline" size="sm" onClick={() => copyToClipboard(JSON.stringify(generatedContent, null, 2))}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy All
-                          </Button>
-                        </div>
-                        
-                        <div className="space-y-6">
-                          {/* Multiple Choice */}
-                          <div>
-                            <h4 className="font-semibold mb-3">Multiple Choice Questions:</h4>
-                            {generatedContent.multiple_choice?.map((q, index) => (
-                              <div key={index} className="mb-4 p-4 border rounded-lg">
-                                <p className="font-medium mb-2">{index + 1}. {q.question}</p>
-                                <div className="space-y-1 ml-4">
-                                  {q.options?.map((option, optIndex) => (
-                                    <div key={optIndex} className={`text-sm ${optIndex === q.correct_answer ? 'text-green-600 font-medium' : 'text-gray-600 dark:text-gray-400'}`}>
-                                      {String.fromCharCode(65 + optIndex)}. {option}
-                                    </div>
-                                  ))}
-                                </div>
-                                <p className="text-sm text-blue-600 mt-2">
-                                  <strong>Explanation:</strong> {q.explanation}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* True/False */}
-                          <div>
-                            <h4 className="font-semibold mb-3">True/False Questions:</h4>
-                            {generatedContent.true_false?.map((q, index) => (
-                              <div key={index} className="mb-4 p-4 border rounded-lg">
-                                <p className="font-medium mb-2">{index + 1}. {q.question}</p>
-                                <p className="text-sm text-green-600">
-                                  <strong>Answer:</strong> {q.correct_answer ? 'True' : 'False'}
-                                </p>
-                                <p className="text-sm text-blue-600 mt-2">
-                                  <strong>Explanation:</strong> {q.explanation}
-                                </p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Short Answer */}
-                          <div>
-                            <h4 className="font-semibold mb-3">Short Answer Questions:</h4>
-                            {generatedContent.short_answer?.map((q, index) => (
-                              <div key={index} className="mb-4 p-4 border rounded-lg">
-                                <p className="font-medium mb-2">{index + 1}. {q.question}</p>
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                                  <strong>Sample Answer:</strong> {q.sample_answer}
-                                </p>
-                                <div className="text-sm text-blue-600">
-                                  <strong>Grading Criteria:</strong>
-                                  <ul className="list-disc list-inside ml-2">
-                                    {q.grading_criteria?.map((criteria, cIndex) => (
-                                      <li key={cIndex}>{criteria}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                {!isLoading && !error && (
+                  (outlineHook.outline || descriptionHook.description || thumbnailHook.thumbnailIdea || quizHook.quiz) ? (
+                    <div className="space-y-6">
+                      {renderGeneratedContent()} {/* Render the dynamic generated content */}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <Sparkles className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        Ready to Generate
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400">
+                        Fill in the parameters and click generate to create AI-powered content
+                      </p>
+                    </div>
+                  )
                 )}
               </CardContent>
             </Card>
