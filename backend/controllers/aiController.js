@@ -201,24 +201,64 @@ export const buildQuizAssessment = asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Topic/Subject and Number of Questions are required.' });
     }
 
-    let prompt = `Create a quiz or assessment.`;
-    prompt += `\nTopic: ${topic}.`;
-    prompt += `\nNumber of Questions: ${numQuestions}.`;
-    if (difficulty) prompt += `\nDifficulty Level: ${difficulty}.`;
-    if (questionTypes && questionTypes.length > 0) prompt += `\nQuestion Types: ${questionTypes.join(', ')}.`;
-    if (additionalContext) prompt += `\nAdditional Context: ${additionalContext}.`;
-    prompt += `\n\nProvide the quiz as a JSON array of questions, where each question is an object with "questionText", "type" (e.g., "multiple-choice", "true-false"), "options" (if multiple-choice, an array of strings), and "correctAnswer" (string or array of strings for multiple correct). Ensure the output is valid JSON. Example: [{"questionText": "What is 2+2?", "type": "multiple-choice", "options": ["3", "4", "5"], "correctAnswer": "4"}]`;
+    // Construct a detailed prompt for the AI, now focusing on the content,
+    // as the format will be enforced by response_format.
+    let prompt = `Generate a quiz on the topic of "${topic}".\n`;
+    prompt += `Difficulty: ${difficulty}.\n`;
+    prompt += `Number of questions: ${numQuestions}.\n`;
 
-    const messages = [{ role: "user", content: prompt }];
+    if (questionTypes && questionTypes.length > 0) {
+        prompt += `Question types: ${questionTypes.join(', ').replace(/-/g, ' ')}.\n`;
+    } else {
+        prompt += `Question types: multiple-choice, true-false, short-answer (mix them if possible).\n`;
+    }
+
+    if (additionalContext) {
+        prompt += `Additional context/specific concepts to cover: ${additionalContext}.\n`;
+    }
+
+    // Explicitly instruct the AI to provide output in a specific JSON format
+    prompt += `\nProvide the quiz as a JSON object with the following structure. Ensure all top-level keys (multiple_choice, true_false, short_answer) are present, even if their arrays are empty. For multiple choice, 'correct_answer' should be the 0-indexed number of the correct option. For true/false, 'correct_answer' should be a boolean.
+{
+  "multiple_choice": [
+    {
+      "question": "string",
+      "options": ["string", "string", "string", "string"],
+      "correct_answer": "number",
+      "explanation": "string"
+    }
+  ],
+  "true_false": [
+    {
+      "question": "string",
+      "correct_answer": "boolean",
+      "explanation": "string"
+    }
+  ],
+  "short_answer": [
+    {
+      "question": "string",
+      "sample_answer": "string",
+      "grading_criteria": ["string", "string"]
+    }
+  ]
+}`;
 
     try {
-        const jsonStringQuiz = await getChatCompletion(messages, 0.7); // Moderate temperature for factual questions
+        // Call getChatCompletion with the new responseFormat parameter
+        const jsonStringQuiz = await getChatCompletion(
+            [{ role: "user", content: prompt }],
+            0.7, // temperature
+            1,   // top_p
+            undefined, // model (use default)
+            { type: "json_object" } // Request JSON object output
+        );
 
         // Attempt to parse the JSON string received from the AI
         const parsedQuiz = JSON.parse(jsonStringQuiz);
         res.json({ success: true, quiz: parsedQuiz });
     } catch (error) {
         console.error('Error building quiz/assessment or parsing JSON:', error);
-        res.status(500).json({ error: 'Failed to build quiz/assessment. The AI might have returned an invalid JSON format. Please try again.' });
+        res.status(500).json({ error: 'Failed to build quiz/assessment. The AI might have returned an invalid JSON format or encountered an internal error. Please try again.' });
     }
 });

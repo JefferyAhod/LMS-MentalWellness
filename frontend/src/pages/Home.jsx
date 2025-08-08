@@ -192,8 +192,8 @@ export default function Home() {
                         </Button>
                         <Button
                             size="lg"
-                            variant="outline"
-                            className="border-white text-white hover:bg-white hover:text-blue-600"
+                            variant="secondary"
+                            className="bg-white border-white text-blue-600 hover:bg-gray-100"
                             onClick={() => navigate(createPageUrl("AboutEducator"))}
                         >
                             Learn More

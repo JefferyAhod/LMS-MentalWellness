@@ -3,13 +3,13 @@ import { getAllCourses, getCourseById, getFeaturedCourses, getRecommendedCourses
 
 const coursesRouter = express.Router();
 
-coursesRouter.route("/featured").get(getFeaturedCourses); 
-
+coursesRouter.route("/featured").get(getFeaturedCourses);
 coursesRouter.route("/recommended").get(getRecommendedCourses);
+coursesRouter.route("/").get(getAllCourses);
 
 coursesRouter.route("/:id").get(getCourseById);
 
-coursesRouter.route("/").get(getAllCourses);
+
 
 
 export default coursesRouter;

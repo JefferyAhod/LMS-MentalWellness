@@ -3,9 +3,9 @@ import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
 import { AzureKeyCredential } from "@azure/core-auth";
 
 // --- AI Service Configuration ---
-const GITHUB_AI_TOKEN = process.env.GITHUB_OPENAI_API_KEY 
+const GITHUB_AI_TOKEN = process.env.GITHUB_OPENAI_API_KEY;
 const GITHUB_AI_ENDPOINT = "https://models.github.ai/inference";
-const GITHUB_AI_MODEL = "openai/gpt-4.1"; 
+const GITHUB_AI_MODEL = "openai/gpt-4.1";
 
 // Initialize the AI client once
 const aiClient = ModelClient(
@@ -13,24 +13,32 @@ const aiClient = ModelClient(
   new AzureKeyCredential(GITHUB_AI_TOKEN),
 );
 
-
 export const getChatCompletion = async (
   messages,
   temperature = 0.7,
   top_p = 1,
-  model = GITHUB_AI_MODEL
+  model = GITHUB_AI_MODEL,
+  // New parameter: responseFormat for requesting structured output
+  responseFormat = undefined // Can be { type: "json_object" }
 ) => {
   if (!GITHUB_AI_TOKEN) {
     throw new Error("GITHUB_TOKEN environment variable is not set. Cannot connect to AI service.");
   }
 
+  const requestBody = {
+    messages: messages,
+    temperature: temperature,
+    top_p: top_p,
+    model: model,
+  };
+
+  // Conditionally add response_format if provided
+  if (responseFormat) {
+    requestBody.response_format = responseFormat;
+  }
+
   const response = await aiClient.path("/chat/completions").post({
-    body: {
-      messages: messages,
-      temperature: temperature,
-      top_p: top_p,
-      model: model
-    }
+    body: requestBody,
   });
 
   if (isUnexpected(response)) {
