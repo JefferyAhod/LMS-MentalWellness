@@ -223,7 +223,7 @@ export default function AdminPanel() {
                           {user.role || 'user'}
                         </Badge>
                         {/* Display Educator badge only if user is an educator and not already an admin */}
-                        {user.is_educator && user.role !== 'admin' && ( 
+                        {user.role ==='educator' && user.role !== 'admin' && ( 
                           <Badge className="bg-blue-100 text-blue-800">
                             Educator
                           </Badge>

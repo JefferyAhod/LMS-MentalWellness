@@ -52,7 +52,7 @@ export const useAdminData = () => {
             setStats({
                 ...statsData,
                 // --- FIX 1: Filter by explicit string 'published' ---
-                publishedCourses: coursesData.filter(c => c.status === 'published').length,
+                publishedCourses: coursesData.filter(c => c.status === 'Published').length,
             });
             
         } catch (err) {
@@ -84,7 +84,7 @@ export const useAdminData = () => {
                 setStats(prev => ({
                     ...statsData,
                     // --- FIX 2: Filter by explicit string 'published' ---
-                    publishedCourses: courses.filter(c => c.status === 'published').length
+                    publishedCourses: courses.filter(c => c.status === 'Published').length
                 }));
             });
 
@@ -107,7 +107,7 @@ export const useAdminData = () => {
                 setStats(prevStats => ({
                     ...prevStats,
                     // --- FIX 3: Filter by explicit string 'published' ---
-                    publishedCourses: updatedCourses.filter(c => c.status === 'published').length
+                    publishedCourses: updatedCourses.filter(c => c.status === 'Published').length
                 }));
                 return updatedCourses;
             });
@@ -145,7 +145,7 @@ export const useAdminData = () => {
                         ...prevStats,
                         totalCourses: prevStats.totalCourses - 1,
                         // --- FIX 4: Filter by explicit string 'published' ---
-                        publishedCourses: updatedCourses.filter(c => c.status === 'published').length
+                        publishedCourses: updatedCourses.filter(c => c.status === 'Published').length
                     }));
                     return updatedCourses;
                 });
