@@ -10,6 +10,7 @@ import {
   deleteUser,
   getAllCourses,
   deleteCourse,
+  toggleCourseStatus,
 } from "../controllers/admin.controller.js";
 
 import { protect, adminOnly } from "../middleware/authMiddleware.js";
@@ -37,6 +38,7 @@ adminRouter.delete("/users/:id", deleteUser);
 
 // Courses
 adminRouter.get("/courses", getAllCourses);
+adminRouter.put("/courses/:id/status", toggleCourseStatus); 
 adminRouter.delete("/courses/:id", deleteCourse);
 
 export default adminRouter;

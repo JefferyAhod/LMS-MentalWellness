@@ -63,9 +63,9 @@ export default function Login() {
           navigate("/EducatorOnboarding");
         } else if (userRole === "admin") {
           navigate("/AdminPanel");
-        } lse {
+        } else {
           // Fallback for unexpected roles
-          naevigate("/Home");
+          navigate("/Home");
         }
       } else {
         // User is logged in and onboarding is complete

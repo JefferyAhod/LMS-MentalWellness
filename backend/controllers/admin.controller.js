@@ -87,8 +87,67 @@ export const deleteUser = asyncHandler(async (req, res) => {
 
 // GET /api/admin/courses
 export const getAllCourses = asyncHandler(async (req, res) => {
-  const courses = await Course.find().populate("educator", "name email");
-  res.json(courses);
+    const courses = await Course.find({
+        status: { $in: ['Pending Review', 'Published'] } 
+    }).populate("educator", "name email"); 
+    res.status(200).json(courses);
+});
+
+// @desc    Toggle course publish status
+// @route   PUT /api/admin/courses/:id/status
+// @access  Private/Admin
+export const toggleCourseStatus = asyncHandler(async (req, res) => {
+    const { id } = req.params; 
+    const { status } = req.body; 
+    
+    // 1. Find the course by its ID
+    const course = await Course.findById(id);
+
+    // 2. Check if the course exists
+    if (!course) {
+        res.status(404);
+        throw new Error('Course not found');
+    }
+
+    // 3. Validate that 'status' is a valid string using lowercase comparison
+    const allowedStatusesLowercase = ['published', 'draft', 'pending review'];
+    if (typeof status !== 'string' || !allowedStatusesLowercase.includes(status.toLowerCase())) {
+        res.status(400); // Bad Request
+        console.log('Invalid status value received:', status); 
+        throw new Error(`Invalid status value. Status must be one of: ${allowedStatusesLowercase.join(', ')}.`);
+    }
+
+    // 4. Determine the correct capitalized status string for the Mongoose enum
+    let statusToSave;
+    switch (status.toLowerCase()) {
+        case 'published':
+            statusToSave = 'Published';
+            break;
+        case 'draft':
+            statusToSave = 'Draft';
+            break;
+        case 'pending review':
+            statusToSave = 'Pending Review'; // Ensure 'Pending Review' is correctly capitalized
+            break;
+        default:
+            // This case should ideally not be reached due to the validation above,
+            // but it's good for robustness.
+            statusToSave = capitalizeWords(status.toLowerCase()); 
+    }
+
+    // 5. Update the course's status with the correctly capitalized string
+    course.status = statusToSave; 
+    await course.save(); 
+
+    // 6. Send a success response
+    res.status(200).json({
+        message: `Course status updated to ${course.status}.`,
+        course: { 
+            _id: course._id,
+            title: course.title,
+            status: course.status // Return the updated status (which is now capitalized)
+        }
+    });
 });
 
 // DELETE /api/admin/courses/:id
