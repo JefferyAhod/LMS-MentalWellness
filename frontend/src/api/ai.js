@@ -43,12 +43,12 @@ export const writeCourseDescription = async (params) => {
 };
 
 
-export const createCourseThumbnailIdea = async (params) => {
+export const createCourseThumbnailImage = async (params) => {
   try {
-    const response = await API.post('/ai/create-course-thumbnail-idea', params);
-    return response.data.thumbnailIdea;
+    const response = await API.post('/ai/create-course-thumbnail-image', params);
+    return response.data.thumbnailImage; 
   } catch (error) {
-    console.error('Frontend API Error - createCourseThumbnailIdea:', error.response ? error.response.data : error.message);
+    console.error('Frontend API Error - createCourseThumbnailImage:', error.response ? error.response.data : error.message);
     throw error;
   }
 };

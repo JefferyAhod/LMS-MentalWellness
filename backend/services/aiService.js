@@ -55,5 +55,69 @@ export const getChatCompletion = async (
   return response.body.choices[0].message.content;
 };
 
-// You can add other specific AI interactions here if needed in the future,
-// for example, image generation or embedding if your model supports them.
+
+
+// SERVICE FOR GENERATING IMAGES
+
+const API_KEY = process.env.GEMINI_API_KEY; 
+
+// Helper function to handle exponential backoff for API calls.
+const callApiWithBackoff = async (url, options, retries = 5, delay = 1000) => {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url, options);
+            if (!response.ok) {
+                // If it's a 429 (Too Many Requests) or a server error, retry
+                if ((response.status === 429 || response.status >= 500) && i < retries - 1) {
+                    console.warn(`Attempt ${i + 1} failed with status ${response.status}, retrying in ${delay / 1000}s...`);
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2; // Exponential backoff
+                    continue;
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.error?.message || `API request failed with status ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            if (i === retries - 1) throw error; 
+            console.warn(`Attempt ${i + 1} failed, retrying in ${delay / 1000}s: ${error.message}`);
+            await new Promise(res => setTimeout(res, delay));
+            delay *= 2; 
+        }
+    }
+    throw new Error("Max retries exceeded for API call.");
+};
+
+
+export const generateImageWithImagen = async (prompt) => {
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${API_KEY}`;
+
+    const payload = {
+        instances: {
+            prompt: prompt
+        },
+        parameters: {
+            sampleCount: 1 // Request one image
+        }
+    };
+
+    try {
+        const result = await callApiWithBackoff(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+            const base64Data = result.predictions[0].bytesBase64Encoded;
+            return `data:image/png;base64,${base64Data}`; // Return as a data URL
+        } else {
+            console.error('Imagen 4.0 API returned no image data:', result);
+            throw new Error('No image data returned from Imagen 4.0 API.');
+        }
+    } catch (error) {
+        console.error('Error calling Imagen 4.0 API:', error);
+        throw new Error(`Failed to generate image: ${error.message}`);
+    }
+};
+

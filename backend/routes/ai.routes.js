@@ -1,6 +1,6 @@
 import express from 'express';
 import { protect, authorizeRoles } from '../middleware/authMiddleware.js';
-import { buildQuizAssessment, createCourseThumbnailIdea, generateCourseOutline, getAICounselorResponse, getWellnessInsights, writeCourseDescription } from '../controllers/aiController.js';
+import { buildQuizAssessment, createCourseThumbnailImage, generateCourseOutline, getAICounselorResponse, getWellnessInsights, writeCourseDescription } from '../controllers/aiController.js';
 
 const aiRouter = express.Router();
 
@@ -18,7 +18,7 @@ aiRouter.post('/generate-course-outline', generateCourseOutline);
 
 aiRouter.post('/write-course-description', writeCourseDescription);
 
-aiRouter.post('/create-course-thumbnail-idea', createCourseThumbnailIdea);
+aiRouter.post('/create-course-thumbnail-image', createCourseThumbnailImage);
 
 aiRouter.post('/build-quiz-assessment', buildQuizAssessment);
 

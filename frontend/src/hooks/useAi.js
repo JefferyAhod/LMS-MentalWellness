@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { getWellnessInsights, getAICounselorResponse, generateCourseOutline, writeCourseDescription, createCourseThumbnailIdea, buildQuizAssessment } from '../api/ai.js'; 
+import { getWellnessInsights, getAICounselorResponse, generateCourseOutline, writeCourseDescription, buildQuizAssessment, createCourseThumbnailImage } from '../api/ai.js'; 
 
 export const useWellnessInsights = (moodData, triggerFetch = false) => {
   const [insight, setInsight] = useState(null);
@@ -194,30 +194,32 @@ export const useCourseThumbnailIdeaCreator = () => {
   const [topic, setTopic] = useState('');
   const [styleTone, setStyleTone] = useState('Creative');
   const [additionalContext, setAdditionalContext] = useState('');
-  const [thumbnailIdea, setThumbnailIdea] = useState(null);
+  const [thumbnailImage, setThumbnailImage] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const createThumbnailIdea = useCallback(async () => {
     if (!topic.trim()) {
-      setError('Topic/Subject is required.');
+      setError('Course Topic is required.');
       return;
     }
 
     setIsLoading(true);
     setError('');
-    setThumbnailIdea(null);
+    setThumbnailImage(null); // Clear previous image
 
     try {
-      const generatedIdea = await createCourseThumbnailIdea({
+      // It now returns a base64 image URL (e.g., "data:image/png;base64,...")
+      const generatedImage = await createCourseThumbnailImage({
         topic,
         styleTone,
         additionalContext,
       });
-      setThumbnailIdea(generatedIdea);
+      // Set the base64 image URL to the state
+      setThumbnailImage(generatedImage); 
     } catch (err) {
-      console.error('Failed to create thumbnail idea:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to create thumbnail idea. Please try again.');
+      console.error('Failed to create thumbnail image:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to create thumbnail image. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -227,10 +229,9 @@ export const useCourseThumbnailIdeaCreator = () => {
     topic, setTopic,
     styleTone, setStyleTone,
     additionalContext, setAdditionalContext,
-    thumbnailIdea, isLoading, error, createThumbnailIdea
+    thumbnailImage, isLoading, error, createThumbnailIdea
   };
 };
-
 // --- Quiz & Assessment Builder Hook (For Educators) ---
 export const useQuizAssessmentBuilder = () => {
   const [topic, setTopic] = useState('');

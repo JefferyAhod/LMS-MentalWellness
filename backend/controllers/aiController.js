@@ -1,7 +1,7 @@
 // backend/controllers/wellnessAiController.js
 import asyncHandler from 'express-async-handler';
 // Import the generic chat completion function from your AI service
-import { getChatCompletion } from '../services/aiService.js';
+import { getChatCompletion, generateImageWithImagen } from '../services/aiService.js';
 import MoodEntry from '../models/MoodEntryModel.js';
 
 // Helper function to calculate weekly average mood score on the backend
@@ -164,32 +164,41 @@ export const writeCourseDescription = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Create a course thumbnail idea (textual description)
-// @route   POST /api/ai/create-course-thumbnail-idea
-// @access  Private (or public)
-export const createCourseThumbnailIdea = asyncHandler(async (req, res) => {
+/**
+ * @desc    Generates a course thumbnail image using Imagen 4.0 based on a textual prompt.
+ * @route   POST /api/ai/create-course-thumbnail-image
+ * @access  Private (e.g., authenticated educator)
+ */
+export const createCourseThumbnailImage = async (req, res) => {
     const { topic, styleTone, additionalContext } = req.body;
 
     if (!topic) {
-        return res.status(400).json({ error: 'Topic/Subject is required.' });
+        return res.status(400).json({ message: 'Course Topic is required to generate a thumbnail image.' });
     }
 
-    let prompt = `Generate a creative and eye-catching idea for a course thumbnail.`;
-    prompt += `\nCourse Topic: ${topic}.`;
-    if (styleTone) prompt += `\nDesired Style/Tone for thumbnail: ${styleTone}.`;
-    if (additionalContext) prompt += `\nAdditional Context/Key elements to include: ${additionalContext}.`;
-    prompt += `\n\nDescribe the visual concept, colors, and any text or icons. Be descriptive but concise.`;
-
-    const messages = [{ role: "user", content: prompt }];
+    // Construct the detailed prompt for the image generation model
+    // This prompt will be sent to the generateImageWithImagen service
+    let imagePrompt = `Generate a visually appealing course thumbnail for the topic: "${topic}".`;
+    if (styleTone) {
+        imagePrompt += ` The style/tone should be ${styleTone}.`;
+    }
+    if (additionalContext) {
+        imagePrompt += ` Key elements to include: ${additionalContext}.`;
+    }
+    imagePrompt += ` Ensure it's suitable for a digital learning platform, with clear, concise visuals.`;
 
     try {
-        const thumbnailIdea = await getChatCompletion(messages, 0.9); // Even higher temperature for creative ideas
-        res.json({ success: true, thumbnailIdea });
+        // Call the new service function to generate the image
+        const imageUrl = await generateImageWithImagen(imagePrompt);
+
+        // Send the base64-encoded image URL back to the frontend
+        res.status(200).json({ thumbnailImage: imageUrl });
+
     } catch (error) {
-        console.error('Error generating thumbnail idea:', error);
-        res.status(500).json({ error: 'Failed to generate thumbnail idea. Please try again.' });
+        console.error('Error in createCourseThumbnailImage controller:', error);
+        res.status(500).json({ message: 'Failed to generate thumbnail image.', error: error.message });
     }
-});
+};
 
 // @desc    Build a quiz or assessment
 // @route   POST /api/ai/build-quiz-assessment
