@@ -10,6 +10,7 @@ import {
   getMyCourses,
   requestApproval,
   getEducatorAnalytics,
+  getEducatorDashboardStats,
 } from "../controllers/educator.controller.js";
 import { protect, authorizeRoles } from "../middleware/authMiddleware.js";
 import multer from 'multer';
@@ -31,10 +32,12 @@ educatorRouter.post("/upload-sample", uploadSampleContent);
 // Teaching tools
 educatorRouter.get("/tools", getTeachingTools);
 
+
 // Courses
 educatorRouter.post("/courses", upload.single('thumbnail'), createCourse);
 educatorRouter.put("/courses/:courseId", updateCourse);
 educatorRouter.get("/my-courses", getMyCourses);
+educatorRouter.get('/dashboard-stats', getEducatorDashboardStats);
 
 // Approval request (optional)
 educatorRouter.post("/request-approval", requestApproval);

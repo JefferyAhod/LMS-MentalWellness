@@ -34,3 +34,13 @@ export const getEducatorAnalytics = async () => {
     const res = await API.get("/educator/analytics");
     return res.data;
 };
+
+export const getEducatorDashboardStats = async () => {
+  try {
+    const res = await API.get("/educator/dashboard-stats");
+    return res.data;
+  } catch (error) {
+    console.error('Frontend API Error - getEducatorDashboardStats:', error);
+    throw error;
+  }
+};

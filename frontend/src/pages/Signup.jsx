@@ -39,18 +39,42 @@ export default function Signup() {
 
     const result = await register(formData);
 
-if (result.success) {
-  toast.success("Account created successfully!");
+   if (result.success) {
+      toast.success("Logged in successfully!");
 
-  const role = result.user?.role || formData.role;
+      const loggedInUser = user; // 
 
-  if (role === "student") {
-    navigate("/StudentOnboarding");
-  } else {
-    navigate("/EducatorOnboarding");
-  }
-}
+      const userRole = loggedInUser?.role || 'student'; 
+      const onboardingStatus = loggedInUser?.onboardingCompleted;
 
+      if (onboardingStatus === false) {
+        // User is logged in but onboarding is not complete
+        if (userRole === "student") {
+          navigate("/StudentOnboarding");
+        } else if (userRole === "educator") {
+          navigate("/EducatorOnboarding");
+        } else if (userRole === "admin") {
+          navigate("/AdminPanel");
+        } else {
+          // Fallback for unexpected roles
+          navigate("/Home");
+        }
+      } else {
+        // User is logged in and onboarding is complete
+        if (userRole === "student") {
+          navigate("/StudentDashboard"); // Navigate to student dashboard
+        } else if (userRole === "educator") {
+          navigate("/EducatorDashboard"); // Navigate to educator dashboard
+        } else {
+          // Fallback for unexpected roles
+          navigate("/Home");
+        }
+      }
+    } else {
+      // Login failed, error message already set by AuthContext
+      setShowError(true); // Show the error message from AuthContext
+      toast.error(error || "Login failed. Please try again."); // Display toast with error
+    }
   };
 
   return (

@@ -214,3 +214,62 @@ export const getEducatorAnalytics = asyncHandler(async (req, res) => {
         message: 'Educator analytics data fetched successfully'
     });
 });
+
+// @desc    Get aggregated dashboard statistics for an educator
+// @route   GET /api/educators/dashboard-stats
+// @access  Private (Educator only)
+export const getEducatorDashboardStats = asyncHandler(async (req, res) => {
+    // req.user._id should be populated by your authentication middleware (e.g., protect)
+    const educatorId = req.user._id;
+
+    // 1. Fetch all courses created by this educator
+    const courses = await Course.find({ educator: educatorId });
+
+    let totalRevenue = 0;
+    let sumRatings = 0;
+    let totalCoursesWithRatings = 0;
+
+    // Using a Set to collect all unique student IDs across all courses
+    const allUniqueStudentIds = new Set();
+
+    // Iterate through each course to gather stats
+    for (const course of courses) {
+        // Fetch enrollments for the current course, populate the 'student' field
+        // --- FIX: Changed .populate('user') to .populate('student') ---
+        const enrollments = await Enrollment.find({ course: course._id }).populate('student');
+        
+        // Accumulate unique students from this course
+        enrollments.forEach(enrollment => {
+            // --- FIX: Changed enrollment.user to enrollment.student ---
+            if (enrollment.student && enrollment.student._id) {
+                allUniqueStudentIds.add(enrollment.student._id.toString());
+            } else {
+                console.warn(`Enrollment ${enrollment._id} has no valid student reference. Skipping for student count.`);
+            }
+        });
+
+        // Calculate revenue for this course
+        if (typeof course.price === 'number' && !isNaN(course.price)) {
+            totalRevenue += course.price * enrollments.length;
+        } else {
+            console.warn(`Course ${course._id} has invalid or missing price (${course.price}). Skipping revenue for this course.`);
+        }
+
+        // Calculate average rating contribution
+        if (typeof course.average_rating === 'number' && !isNaN(course.average_rating)) {
+            sumRatings += course.average_rating;
+            totalCoursesWithRatings++;
+        }
+    }
+
+    const finalTotalStudents = allUniqueStudentIds.size;
+    const avgRating = totalCoursesWithRatings > 0 ? (sumRatings / totalCoursesWithRatings).toFixed(1) : 0;
+    const formattedTotalRevenue = totalRevenue.toFixed(2);
+
+    res.status(200).json({
+        totalCourses: courses.length,
+        totalStudents: finalTotalStudents,
+        totalRevenue: formattedTotalRevenue,
+        avgRating: parseFloat(avgRating)
+    });
+});

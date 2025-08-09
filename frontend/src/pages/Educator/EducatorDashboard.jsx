@@ -24,18 +24,25 @@ import {
 
 import { useAuth } from '@/context/AuthContext';
 import { useFetchEducatorCourses } from '@/hooks/useFetchEducatorCourses';
+import { useFetchEducatorDashboardStats } from '@/hooks/useFetchEducatorDashboardStats'; // Import the new hook
 
 export default function EducatorDashboard() {
     const navigate = useNavigate();
     const { user, isAuthenticated, loading: authLoading } = useAuth();
     const { courses, loading: coursesLoading, error: coursesError, refetchCourses } = useFetchEducatorCourses();
+    // Use the new hook to fetch dashboard stats
+    const { stats, loading: statsLoading, error: statsError, refetchStats } = useFetchEducatorDashboardStats();
 
-    const totalStudents = 0;
-    const totalRevenue = 0;
-    const avgRating = 0;
+    // These values will now come directly from the 'stats' object provided by the hook
+    const totalStudents = stats.totalStudents;
+    const totalRevenue = stats.totalRevenue;
+    const avgRating = stats.avgRating;
 
-    // This useCallback hook must also be at the top level
+    // This useCallback hook remains a placeholder for course-specific stats
     const getStatsForCourse = useCallback((courseId) => {
+        // In a real application, you might filter the 'courses' array
+        // or have another hook/API call to get detailed stats per course.
+        // For now, it returns placeholders.
         return {
             totalEnrollments: 0,
             completedCount: 0,
@@ -43,14 +50,15 @@ export default function EducatorDashboard() {
         };
     }, []); 
 
-    // This useEffect hook must also be at the top level
+    // Redirect unauthenticated users to the login page
     useEffect(() => {
         if (!authLoading && !isAuthenticated) {
             navigate(createPageUrl("Login"));
         }
     }, [isAuthenticated, authLoading, navigate]); 
 
-    if (authLoading || coursesLoading) {
+    // Combine loading states from both hooks for a unified loading experience
+    if (authLoading || coursesLoading || statsLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                 <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
@@ -59,25 +67,29 @@ export default function EducatorDashboard() {
         );
     }
 
+    // If not authenticated after loading, return null (though useEffect should handle redirect)
     if (!isAuthenticated) {
         return null;
     }
 
-    if (coursesError) {
+    // Handle errors from either courses or stats fetching
+    if (coursesError || statsError) {
+        const errorMessage = coursesError?.message || statsError?.message || "Something went wrong while fetching dashboard data.";
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
                 <AlertCircle className="h-16 w-16 text-red-500 mb-6" />
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Error Loading Courses</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Error Loading Dashboard</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-center mb-8">
-                    {coursesError.message || "Something went wrong while fetching your courses. Please try again."}
+                    {errorMessage}
                 </p>
-                <Button onClick={refetchCourses} variant="outline" className="px-6 py-3">
+                <Button onClick={() => { refetchCourses(); refetchStats(); }} variant="outline" className="px-6 py-3">
                     <TrendingUp className="w-5 h-5 mr-2" /> Try Again
                 </Button>
             </div>
         );
     }
 
+    // Access Denied for non-educator roles
     if (user?.role !== "educator") {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -117,14 +129,14 @@ export default function EducatorDashboard() {
                     </Link>
                 </div>
 
-                {/* Stats Cards (Placeholders) */}
+                {/* Stats Cards (Now Dynamic) */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-blue-100 text-sm">Total Courses</p>
-                                    <p className="text-3xl font-bold">{courses.length}</p>
+                                    <p className="text-3xl font-bold">{stats.totalCourses}</p>
                                 </div>
                                 <BookOpen className="w-8 h-8 text-blue-200" />
                             </div>
@@ -136,7 +148,7 @@ export default function EducatorDashboard() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-green-100 text-sm">Total Students</p>
-                                    <p className="text-3xl font-bold">{totalStudents}</p>
+                                    <p className="text-3xl font-bold">{totalStudents}</p> 
                                 </div>
                                 <Users className="w-8 h-8 text-green-200" />
                             </div>
@@ -148,7 +160,7 @@ export default function EducatorDashboard() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-purple-100 text-sm">Total Revenue</p>
-                                    <p className="text-3xl font-bold">${totalRevenue.toFixed(0)}</p>
+                                    <p className="text-3xl font-bold">${totalRevenue}</p> 
                                 </div>
                                 <DollarSign className="w-8 h-8 text-purple-200" />
                             </div>
@@ -160,7 +172,7 @@ export default function EducatorDashboard() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-orange-100 text-sm">Avg Rating</p>
-                                    <p className="text-3xl font-bold">{avgRating.toFixed(1)}</p>
+                                    <p className="text-3xl font-bold">{avgRating}</p> 
                                 </div>
                                 <Star className="w-8 h-8 text-orange-200" />
                             </div>
@@ -177,7 +189,7 @@ export default function EducatorDashboard() {
                         {courses.length > 0 ? (
                             <div className="space-y-4">
                                 {courses.map((course) => {
-                                    const stats = getStatsForCourse(course._id);
+                                    const stats = getStatsForCourse(course._id); // This still returns placeholders
                                     return (
                                         <div key={course._id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                                             <div className="flex items-center justify-between mb-3">
@@ -221,7 +233,7 @@ export default function EducatorDashboard() {
                                                 </div>
                                             </div>
 
-                                            {/* Course-specific Stats (Placeholders) */}
+                                            {/* Course-specific Stats (Placeholders, needs backend data for real values) */}
                                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                                                 <div className="text-center">
                                                     <div className="text-lg font-bold text-gray-900 dark:text-white">
