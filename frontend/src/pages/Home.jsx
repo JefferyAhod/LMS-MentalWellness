@@ -40,7 +40,7 @@ export default function Home() {
         error: recommendedCoursesError
     } = useFetchRecommendedCourses(3);
 
-    const categories = [
+  const categories = [
         { id: "all", name: "All Courses" },
         { id: "programming", name: "Programming" },
         { id: "design", name: "Design" },
@@ -141,7 +141,7 @@ export default function Home() {
                             <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
                                 Recommended for You
                             </h3>
-                            <Link to={createPageUrl("CoursesPage", { category: 'recommended' })} className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm">
+                            <Link to={createPageUrl("Courses")} className="ml-auto text-blue-600 dark:text-blue-400 hover:underline text-sm">
                                 View All
                             </Link>
                         </div>
