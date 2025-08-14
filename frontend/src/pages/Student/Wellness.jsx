@@ -13,55 +13,58 @@ import {
   Meh,
   Activity,
   Brain,
-  MessageCircle,
+  MessageCircle, // Still used in the header, not for a button
   TrendingUp,
   Calendar,
-  Lightbulb,
-  Loader2 // Added for loading state
+  Lightbulb, // No longer directly used as Insight Card is removed
+  Loader2 // Still used for page loading
 } from "lucide-react";
 
 import MoodTracker from "../../components/MoodTracker";
 import WellnessTips from "../../components/WellnessTips";
-import CounselorChat from "../../components/CounselorChat";
+import CounselorChat from "../../components/CounselorChat"; // Import CounselorChat
 import { Link } from "react-router-dom";
 
 // Import your custom hooks for authentication and mood tracking
 import { useAuth } from '@/context/AuthContext';
 import { useMoodTracker } from '../../hooks/useMoodTracker'; // Adjust path if necessary
+// Removed useWellnessInsights import as it's no longer needed
+// import { useWellnessInsights } from '../../hooks/useAi';
 
 export default function Wellness() {
-  // Use data and loading states directly from your hooks
   const { user, loading: authLoading } = useAuth();
   const {
     moodEntries,
     todaysMood,
-    isLoadingMoods, // Represents loading state for mood data
-    isSubmittingMood, // Represents loading state for mood submission
-    submitMood, // Function to handle mood creation/update
-    // fetchMoodData, // Not directly used here, as submitMood re-fetches
-    getMoodIcon, // Helper from hook for icons
-    getMoodColor // Helper from hook for colors
+    isLoadingMoods,
+    isSubmittingMood,
+    submitMood,
+    getMoodIcon,
+    getMoodColor
   } = useMoodTracker();
 
-  const [showCounselor, setShowCounselor] = useState(false);
+  // Removed useWellnessInsights hook call and its state variables
+  // const { 
+  //   insight, 
+  //   isLoading: isLoadingInsights, 
+  //   error: insightError,
+  //   fetchInsight 
+  // } = useWellnessInsights({ userId: user?.id, moodEntries });
 
-  // useEffect is no longer needed to manually call loadWellnessData,
-  // as useMoodTracker's internal useEffect handles initial data fetching.
-  useEffect(() => {
-    // You can add other side effects here if needed,
-    // e.g., logging or analytics once data is loaded.
-  }, [user, moodEntries, todaysMood]); // Dependencies can be based on your logic
+  // Removed useEffect for fetching insights
+  // useEffect(() => {
+  //   if (user && moodEntries.length > 0 && !insight && !isLoadingInsights) {
+  //       fetchInsight();
+  //   }
+  // }, [user, moodEntries, insight, isLoadingInsights, fetchInsight]);
 
-  // This function now uses the submitMood from useMoodTracker hook
+
   const handleMoodSubmit = async (mood, notes) => {
-    // The submitMood function from the hook handles if it's an update or new creation,
-    // and automatically reloads mood data.
     await submitMood(mood, notes);
   };
 
-  // Helper function for weekly trend remains in Wellness.jsx
   const getWeeklyMoodTrend = () => {
-    const lastWeek = moodEntries.slice(0, 7); // Assuming moodEntries are already sorted by date descending
+    const lastWeek = moodEntries.slice(0, 7);
     const moodValues = {
       very_sad: 1,
       sad: 2,
@@ -70,14 +73,12 @@ export default function Wellness() {
       very_happy: 5
     };
 
-    // Ensure lastWeek is not empty to avoid division by zero
-    if (lastWeek.length === 0) return 3; // Default to neutral if no entries
+    if (lastWeek.length === 0) return 3; 
 
     const average = lastWeek.reduce((sum, entry) => sum + moodValues[entry.mood], 0) / lastWeek.length;
     return average;
   };
 
-  // Combine loading states from both hooks
   if (authLoading || isLoadingMoods) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
@@ -86,7 +87,6 @@ export default function Wellness() {
     );
   }
 
-  // Check if user is logged in after authentication loading
   if (!authLoading && !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
@@ -102,7 +102,6 @@ export default function Wellness() {
     );
   }
 
-  // Main UI remains unchanged
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -165,47 +164,53 @@ export default function Wellness() {
           </Card>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
-          {/* Mood Tracker */}
-          <div className="lg:col-span-2">
+        {/* Main Content Area: Flex Container for Left (Tracker/Tips) and Right (Chat) */}
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left Section: Mood Tracker & Wellness Tips */}
+          {/* Reverted width to lg:col-span-2 as the insight card is gone, giving more space for tips/tracker */}
+          <div className="flex-1 lg:col-span-2 space-y-6"> 
             <MoodTracker
               onMoodSubmit={handleMoodSubmit}
               todaysMood={todaysMood}
-              // moodEntries prop is not passed here as MoodTracker typically handles new entries, not displays all.
-              // If MoodTracker needs moodEntries, ensure it uses its own props or context.
-              // Your MoodTracker.jsx (provided previously) uses its own internal state, so no change needed here.
+              isSubmittingMood={isSubmittingMood} 
             />
+            {/* AI Wellness Insight Card - REMOVED */}
+            {/* <Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                  <Lightbulb className="h-5 w-5 text-yellow-500" /> AI Wellness Insight
+                </CardTitle>
+                {isLoadingInsights && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
+              </CardHeader>
+              <CardContent className="pt-2">
+                {insightError && (
+                  <p className="text-red-500 text-sm">{insightError}</p>
+                )}
+                {insight ? (
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {insight}
+                  </p>
+                ) : (
+                  !isLoadingInsights && !insightError && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Track your mood to get personalized insights on your well-being.
+                    </p>
+                  )
+                )
+                }
+              </CardContent>
+            </Card> */}
+            {/* <WellnessTips /> */}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <WellnessTips />
-
-            {/* Counselor Support */}
-            <Card className="border-0 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageCircle className="w-5 h-5 text-blue-500" />
-                  Need Support?
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">
-                  If you're struggling with stress, anxiety, or any mental health concerns,
-                  our counselors are here to help.
-                </p>
-                <Button
-                  onClick={() => setShowCounselor(true)}
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                >
-                  Talk to a Counselor
-                </Button>
-              </CardContent>
-            </Card>
+          {/* Right Section: Embedded AI Counselor Chat */}
+          {/* This section now takes lg:w-1/3 again, as the left column is larger */}
+          <div className="flex-1 lg:w-1/3"> 
+            <CounselorChat /> 
           </div>
         </div>
 
-        {/* Recent Mood History */}
+        {/* Recent Mood History - remains below the main two-column layout */}
         <Card className="mt-8 border-0 shadow-lg">
           <CardHeader>
             <CardTitle>Recent Mood History</CardTitle>
@@ -214,9 +219,9 @@ export default function Wellness() {
             {moodEntries.length > 0 ? (
               <div className="space-y-4">
                 {moodEntries.slice(0, 7).map((entry) => (
-                  <div key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <div key={entry._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                     <div className="flex items-center gap-3">
-                      {getMoodIcon(entry.mood)} {/* Using getMoodIcon from useMoodTracker */}
+                      {getMoodIcon(entry.mood)}
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">
                           {new Date(entry.date).toLocaleDateString('en-US', {
@@ -233,7 +238,7 @@ export default function Wellness() {
                         )}
                       </div>
                     </div>
-                    <Badge className={getMoodColor(entry.mood)}> {/* Using getMoodColor from useMoodTracker */}
+                    <Badge className={getMoodColor(entry.mood)}> 
                       {entry.mood.replace('_', ' ')}
                     </Badge>
                   </div>
@@ -250,11 +255,6 @@ export default function Wellness() {
           </CardContent>
         </Card>
       </div>
-
-      {/* Counselor Chat Modal */}
-      {showCounselor && (
-        <CounselorChat onClose={() => setShowCounselor(false)} />
-      )}
     </div>
   );
 }

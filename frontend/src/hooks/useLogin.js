@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import axios from '../api/authApi';
-import useAuth from './useAuth';
+import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
 
 const useLogin = () => {
   const { setUser } = useAuth();

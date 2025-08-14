@@ -1,10 +1,11 @@
+// frontend/src/api/ai.js
 import API from "./axios"; 
 
 
-export const getWellnessInsights = async (data) => {
+export const getWellnessInsights = async (userId) => {
   try {
-    const response = await API.post('/ai/insights', data);
-    return response.insight; 
+    const response = await API.post('/ai/insights', { userId });
+    return response.data.insight; 
   } catch (error) {
     console.error('Frontend API Error - getWellnessInsights:', error);
     throw error;
@@ -15,7 +16,11 @@ export const getWellnessInsights = async (data) => {
 export const getAICounselorResponse = async (chatHistory) => {
   try {
     const response = await API.post('/ai/counselor', { chatHistory });
-    return response.response;
+    // --- FIX IS HERE: More robust check for response.data and response.data.response ---
+    // Ensure response.data exists, then ensure response.data.response exists and is a string.
+    // Provide a fallback string if anything is missing or not a string.
+    const aiResponseContent = response.data?.response;
+    return typeof aiResponseContent === 'string' ? aiResponseContent : "I'm sorry, I couldn't process that. Please try rephrasing.";
   } catch (error) {
     console.error('Frontend API Error - getAICounselorResponse:', error);
     throw error;

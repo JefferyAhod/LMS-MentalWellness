@@ -62,7 +62,6 @@ export default function CreateCourse() {
     useEffect(() => {
         if (location.state?.prefillCourseData) {
             const { prefillCourseData } = location.state;
-            console.log("Prefilling course data:", prefillCourseData);
 
             setCourseData(prevData => {
                 // Map AI-generated chapters and lessons to your courseData.chapters structure
@@ -115,9 +114,9 @@ export default function CreateCourse() {
     ];
 
     const levels = [
-        { id: "beginner", name: "Beginner" },
-        { id: "intermediate", name: "Intermediate" },
-        { id: "advanced", name: "Advanced" }
+        { id: "Beginner", name: "Beginner" },
+        { id: "Intermediate", name: "Intermediate" },
+        { id: "Advanced", name: "Advanced" }
     ];
 
     // Handle changes for generic input fields (except tags/contentLinks)

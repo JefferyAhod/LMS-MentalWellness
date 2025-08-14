@@ -28,14 +28,15 @@ import {
 
 // Components
 import VideoPlayer from "../../components/VideoPlayer";
-import ReviewSection from "../../components/ReviewSection";
+import ReviewSection from "../../components/ReviewSection"; 
+import DiscussionSection from "../../components/DiscussionSection"; 
 import CertificateModal from "../../components/CertificateModal";
 
 // Custom Hooks
 import { useAuth } from '@/context/AuthContext';
 import { useFetchCourseDetail } from '@/hooks/useFetchCourseDetail';
-import { useCourseProgress } from '@/hooks/useCourseProgress';
-import { toast } from 'react-toastify'; // Ensure toast is imported here
+import { useCourseProgress } from '@/hooks/useCourseProgress'; // This hook will be implicitly updated by backend change
+import { toast } from 'react-toastify';
 
 export default function CourseDetail() {
     const navigate = useNavigate();
@@ -53,7 +54,7 @@ export default function CourseDetail() {
     } = useFetchCourseDetail(courseId);
 
     const {
-        enrollment,
+        enrollment, // This will be null if not enrolled due to backend change
         completedLectures,
         progressPercentage,
         isCourseCompleted,
@@ -63,8 +64,9 @@ export default function CourseDetail() {
         isLectureCompleted
     } = useCourseProgress(courseId, user?._id, course?.chapters);
 
-    const [currentVideo, setCurrentVideo] = useState(null);
+    const [videoToPlayInModal, setVideoToPlayInModal] = useState(null);
     const [showCertificate, setShowCertificate] = useState(false);
+    const [activeTab, setActiveTab] = useState('curriculum'); 
 
     useEffect(() => {
         if (!courseId) {
@@ -73,30 +75,88 @@ export default function CourseDetail() {
         refetchCourse();
     }, [courseId, refetchCourse]);
 
+    const allLectures = course?.chapters?.flatMap(chapter => chapter.lectures) || [];
+
     const handleEnroll = useCallback(async () => {
+        // Ensure user is authenticated before attempting to enroll
+        if (!isAuthenticated) {
+            toast.info("Please log in to enroll in courses.");
+            navigate(createPageUrl("Login")); // Redirect to login if not authenticated
+            return;
+        }
+
+        // The 'enroll' function from useCourseProgress should handle its own loading/errors/toasts
         const success = await enroll(courseId, course?.price || 0);
         if (success && course.price > 0) {
+            // Only navigate to payment if enrollment was successful AND price > 0
             navigate(createPageUrl("PaymentPage", { courseId: courseId }));
+        } else if (success && course.price === 0) {
+            // For free courses, directly open the first lecture if successful
+            const firstLecture = allLectures[0];
+            if (firstLecture) {
+                setVideoToPlayInModal(firstLecture);
+            } else {
+                toast.info("Course enrolled! No lectures found to play immediately.");
+            }
         }
-    }, [enroll, courseId, course?.price, navigate]);
+    }, [enroll, courseId, course?.price, navigate, allLectures, isAuthenticated]);
 
 
     const handleLectureClick = useCallback((lecture) => {
+        // Lecture is accessible if enrolled OR if it's a free preview
         const isAccessible = enrollment || lecture.is_preview_free;
         if (isAccessible) {
-            setCurrentVideo(lecture);
+            setVideoToPlayInModal(lecture);
         } else {
-            toast.info("Please enroll in the course to access this lecture.");
+            // No error toast for "not enrolled", just informational
+            toast.info("Please enroll in the course to access this lecture or watch a free preview.");
         }
     }, [enrollment]);
 
-
-    const handleLectureComplete = useCallback(async (lectureId) => {
-        const success = await markLectureAsComplete(lectureId, course?.chapters);
-        if (success && isCourseCompleted) {
-            setShowCertificate(true);
+    const handleVideoComplete = useCallback(async () => {
+        if (videoToPlayInModal) {
+            const success = await markLectureAsComplete(videoToPlayInModal._id, course?.chapters);
+            if (success) {
+                toast.success(`${videoToPlayInModal.title} marked as complete!`);
+                // Check if the course is completed immediately after marking the lecture
+                // The useCourseProgress hook should update isCourseCompleted based on new progress
+                if (isCourseCompleted) { // This state is from the useCourseProgress hook
+                    setShowCertificate(true);
+                }
+            } else {
+                toast.error("Failed to mark lecture as complete.");
+            }
         }
-    }, [markLectureAsComplete, isCourseCompleted, course?.chapters]);
+    }, [markLectureAsComplete, isCourseCompleted, videoToPlayInModal, course?.chapters]);
+
+    const handleNextLecture = useCallback(() => {
+        if (!videoToPlayInModal) return;
+        const currentIndex = allLectures.findIndex(lec => lec._id === videoToPlayInModal._id);
+        if (currentIndex !== -1 && currentIndex < allLectures.length - 1) {
+            const nextLecture = allLectures[currentIndex + 1];
+            const isAccessible = enrollment || nextLecture.is_preview_free;
+            if (isAccessible) {
+                setVideoToPlayInModal(nextLecture);
+            } else {
+                toast.info("Enroll in the course to access the next lecture!");
+                setVideoToPlayInModal(null); // Stop playing if next is not accessible
+            }
+        } else {
+            toast.info("You've reached the end of the course lectures.");
+            setVideoToPlayInModal(null);
+        }
+    }, [videoToPlayInModal, allLectures, enrollment]);
+
+    const handlePreviousLecture = useCallback(() => {
+        if (!videoToPlayInModal) return;
+        const currentIndex = allLectures.findIndex(lec => lec._id === videoToPlayInModal._id);
+        if (currentIndex > 0) {
+            const previousLecture = allLectures[currentIndex - 1];
+            setVideoToPlayInModal(previousLecture);
+        } else {
+            toast.info("This is the first lecture.");
+        }
+    }, [videoToPlayInModal, allLectures]);
 
     const formatDuration = (minutes) => {
         const hours = Math.floor(minutes / 60);
@@ -104,7 +164,6 @@ export default function CourseDetail() {
         return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
     };
 
-    // --- Conditional Renderings for Loading/Error/Access ---
     if (!courseId) {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -152,7 +211,6 @@ export default function CourseDetail() {
         );
     }
 
-    // --- Main Course Detail Content ---
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             {/* Header */}
@@ -218,6 +276,7 @@ export default function CourseDetail() {
                                 </div>
                             </div>
 
+                            {/* Only show progress if enrolled */}
                             {enrollment && (
                                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
                                     <div className="flex items-center justify-between mb-2">
@@ -253,15 +312,17 @@ export default function CourseDetail() {
                         <div className="lg:col-span-1">
                             <Card className="sticky top-4 border-0 shadow-lg">
                                 <CardHeader className="p-0">
+                                    {/* Display Course Thumbnail */}
                                     <div className="aspect-video bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center rounded-t-lg overflow-hidden">
                                         {course.thumbnail ? (
                                             <img
                                                 src={course.thumbnail}
                                                 alt={course.title}
                                                 className="w-full h-full object-cover rounded-t-lg"
-                                                onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/64x64/cccccc/333333?text=No+Img'; }}
+                                                onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/640x360/cccccc/333333?text=Course+Thumbnail'; }}
                                             />
                                         ) : (
+                                            // Fallback if no thumbnail
                                             <Play className="w-12 h-12 text-white opacity-70" />
                                         )}
                                     </div>
@@ -276,14 +337,15 @@ export default function CourseDetail() {
                                         </p>
                                     </div>
 
+                                    {/* Conditional rendering for Enroll Button or Course Content */}
                                     {enrollment ? (
                                         <div className="space-y-3">
                                             <Button
                                                 className="w-full"
                                                 onClick={() => {
-                                                    const firstLecture = course.chapters?.[0]?.lectures?.[0];
+                                                    const firstLecture = allLectures[0];
                                                     if (firstLecture) {
-                                                        setCurrentVideo(firstLecture);
+                                                        setVideoToPlayInModal(firstLecture);
                                                     } else {
                                                         toast.info("No lectures found for this course.");
                                                     }
@@ -302,11 +364,10 @@ export default function CourseDetail() {
                                             <Button
                                                 className="w-full"
                                                 onClick={handleEnroll}
-                                                // The hook itself will manage the loading state and prevent re-enroll
-                                                // Text changes to "Enrolling..." via isLoadingProgress
+                                                disabled={isLoadingProgress || !isAuthenticated} // Disable if loading or not authenticated
                                             >
                                                 <BookOpen className="w-4 h-4 mr-2" />
-                                                {isLoadingProgress ? 'Enrolling...' : 'Enroll Now'}
+                                                {isLoadingProgress ? 'Loading status...' : !isAuthenticated ? 'Login to Enroll' : 'Enroll Now'}
                                             </Button>
                                             <Button variant="outline" className="w-full">
                                                 <Share2 className="w-4 h-4 mr-2" />
@@ -321,96 +382,111 @@ export default function CourseDetail() {
                 </div>
             </div>
 
-            {/* Video Player */}
-            {currentVideo && (
-                <VideoPlayer
-                    video={currentVideo}
-                    onClose={() => setCurrentVideo(null)}
-                    onComplete={() => handleLectureComplete(currentVideo._id)}
-                    isCompleted={isLectureCompleted(currentVideo._id)}
-                />
-            )}
+            {/* Navigation Tabs for Curriculum, Reviews, Discussions */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+                <div className="flex border-b border-gray-200 dark:border-gray-700 mb-6">
+                    <button
+                        className={`px-4 py-2 text-lg font-medium ${activeTab === 'curriculum' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                        onClick={() => setActiveTab('curriculum')}
+                    >
+                        Curriculum
+                    </button>
+                    <button
+                        className={`ml-4 px-4 py-2 text-lg font-medium ${activeTab === 'reviews' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                        onClick={() => setActiveTab('reviews')}
+                    >
+                        Reviews
+                    </button>
+                    <button
+                        className={`ml-4 px-4 py-2 text-lg font-medium ${activeTab === 'discussions' ? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}`}
+                        onClick={() => setActiveTab('discussions')}
+                    >
+                        Discussions
+                    </button>
+                </div>
+            </div>
 
-            {/* Course Content */}
+
+            {/* Content based on active tab */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 <div className="grid lg:grid-cols-3 gap-8">
-                    {/* Course Curriculum */}
                     <div className="lg:col-span-2">
-                        <Card className="mb-8 border-0">
-                            <CardHeader>
-                                <CardTitle>Course Curriculum</CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    {course.chapters?.length > 0 ? (
-                                        course.chapters.map((chapter, chapterIndex) => (
-                                            <div key={chapter._id || chapterIndex} className="border rounded-lg overflow-hidden">
-                                                <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3">
-                                                    <h3 className="font-semibold text-gray-900 dark:text-white">
-                                                        {chapter.title}
-                                                    </h3>
-                                                </div>
-                                                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                                                    {chapter.lectures?.map((lecture) => {
-                                                        const isAccessible = enrollment || lecture.is_preview_free;
-                                                        const isCompleted = isLectureCompleted(lecture._id);
+                        {activeTab === 'curriculum' && (
+                            <Card className="mb-8 border-0">
+                                <CardHeader>
+                                    <CardTitle>Course Curriculum</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {course.chapters?.length > 0 ? (
+                                            course.chapters.map((chapter, chapterIndex) => (
+                                                <div key={chapter._id || chapterIndex} className="border rounded-lg overflow-hidden">
+                                                    <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                                                        <h3 className="font-semibold text-gray-900 dark:text-white">
+                                                            {chapter.title}
+                                                        </h3>
+                                                    </div>
+                                                    <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                                                        {chapter.lectures?.map((lecture) => {
+                                                            const isAccessible = enrollment || lecture.is_preview_free;
+                                                            const isCompleted = isLectureCompleted(lecture._id);
 
-                                                        return (
-                                                            <div
-                                                                key={lecture._id}
-                                                                className={`px-4 py-3 flex items-center justify-between ${
-                                                                    isAccessible ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : 'cursor-not-allowed opacity-60'
-                                                                }`}
-                                                                onClick={() => {
-                                                                    if (isAccessible) {
-                                                                        setCurrentVideo(lecture);
-                                                                    } else {
-                                                                        toast.info("Please enroll in the course to access this lecture.");
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <div className="flex items-center gap-3">
-                                                                    {isCompleted ? (
-                                                                        <CheckCircle className="w-5 h-5 text-green-500" />
-                                                                    ) : isAccessible ? (
-                                                                        <Play className="w-5 h-5 text-gray-400" />
-                                                                    ) : (
-                                                                        <Lock className="w-5 h-5 text-gray-400" />
-                                                                    )}
-                                                                    <div>
-                                                                        <p className="font-medium text-gray-900 dark:text-white">
-                                                                            {lecture.title}
-                                                                        </p>
-                                                                        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                                                            <Clock className="w-3 h-3" />
-                                                                            {formatDuration(lecture.duration || 0)}
-                                                                            {lecture.is_preview_free && (
-                                                                                <Badge variant="outline" className="text-xs">
-                                                                                    Preview
-                                                                                </Badge>
-                                                                            )}
+                                                            return (
+                                                                <div
+                                                                    key={lecture._id}
+                                                                    className={`px-4 py-3 flex items-center justify-between ${
+                                                                        isAccessible ? 'hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer' : 'cursor-not-allowed opacity-60'
+                                                                    }`}
+                                                                    onClick={() => handleLectureClick(lecture)}
+                                                                >
+                                                                    <div className="flex items-center gap-3">
+                                                                        {isCompleted ? (
+                                                                            <CheckCircle className="w-5 h-5 text-green-500" />
+                                                                        ) : isAccessible ? (
+                                                                            <Play className="w-5 h-5 text-gray-400" />
+                                                                        ) : (
+                                                                            <Lock className="w-5 h-5 text-gray-400" />
+                                                                        )}
+                                                                        <div>
+                                                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                                                {lecture.title}
+                                                                            </p>
+                                                                            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                                                                <Clock className="w-3 h-3" />
+                                                                                {formatDuration(lecture.duration || 0)}
+                                                                                {lecture.is_preview_free && (
+                                                                                    <Badge variant="outline" className="text-xs">
+                                                                                        Preview
+                                                                                    </Badge>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
+                                                                    <ChevronRight className="w-4 h-4 text-gray-400" />
                                                                 </div>
-                                                                <ChevronRight className="w-4 h-4 text-gray-400" />
-                                                            </div>
-                                                        );
-                                                    })}
+                                                            );
+                                                        })}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-gray-600 dark:text-gray-400 text-center py-8">No curriculum available for this course yet.</p>
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
+                                            ))
+                                        ) : (
+                                            <p className="text-gray-600 dark:text-gray-400 text-center py-8">No curriculum available for this course yet.</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
-                        {/* Reviews */}
-                        <ReviewSection
-                            courseId={course._id}
-                            userEnrollment={enrollment}
-                        />
+                        {activeTab === 'reviews' && (
+                            <ReviewSection
+                                courseId={course._id}
+                                userEnrollment={enrollment}
+                            />
+                        )}
+
+                        {activeTab === 'discussions' && (
+                            <DiscussionSection courseId={course._id} />
+                        )}
                     </div>
 
                     {/* Sidebar */}
@@ -451,6 +527,19 @@ export default function CourseDetail() {
                     </div>
                 </div>
             </div>
+
+            {/* Video Player Modal */}
+            {videoToPlayInModal && (
+                <VideoPlayer
+                    video={videoToPlayInModal}
+                    allLectures={allLectures}
+                    onClose={() => setVideoToPlayInModal(null)}
+                    onComplete={handleVideoComplete}
+                    isCompleted={isLectureCompleted(videoToPlayInModal._id)}
+                    onNext={handleNextLecture}
+                    onPrevious={handlePreviousLecture}
+                />
+            )}
 
             {/* Certificate Modal */}
             {showCertificate && isCourseCompleted && (

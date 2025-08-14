@@ -93,7 +93,10 @@ const courseSchema = new mongoose.Schema(
         viewsCount: {
             type: Number,
             default: 0,
-        }
+        },
+        recommendationScore: { type: Number, default: 0 },
+        keywords: { type: [String], default: [] } 
+
   },
   { timestamps: true } 
 );

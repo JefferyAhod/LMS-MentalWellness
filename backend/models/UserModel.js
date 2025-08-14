@@ -2,6 +2,15 @@ import bcrypt from "bcryptjs";
 import mongoose from "mongoose";
 import crypto from "crypto";
 
+// Define a simple schema for general user activities
+// This is separate from the studentProfile's detailed course activity.
+const userActivitySchema = mongoose.Schema({
+  action: { type: String, required: true }, // e.g., "Register", "Login", "Logout", "Onboarding"
+  description: { type: String }, // Additional details about the action
+  date: { type: Date, default: Date.now }, // When the activity occurred
+  // You can add other fields here if needed, like 'ipAddress', 'deviceInfo', etc.
+});
+
 const userSchema = mongoose.Schema(
   {
     name: {
@@ -33,15 +42,29 @@ const userSchema = mongoose.Schema(
       default: "approved"
     },
     isActive: {
-  type: Boolean,
-  default: true,
-},
+      type: Boolean,
+      default: true,
+    },
     onboardingCompleted: { 
-        type: Boolean,
-         default: false
-         },
+      type: Boolean,
+      default: false
+    },
     passwordResetToken: String,
     passwordResetExpires: Date,
+    // Add the activityHistory field to the User model
+    activityHistory: {
+      type: [userActivitySchema], // Array of the new userActivitySchema
+      default: [], // Ensure it defaults to an empty array
+    },
+    preferredCategories: { // This seems to belong to User or StudentProfile based on context
+      type: [String],
+      default: []
+    },
+    preferredLevels: { // This also seems to belong to User or StudentProfile based on context
+      type: [String],
+      enum: ["Beginner", "Intermediate", "Advanced"],
+      default: []
+    }
   },
   { timestamps: true }
 );

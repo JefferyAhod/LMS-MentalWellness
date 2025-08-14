@@ -7,19 +7,15 @@ export const useWellnessInsights = (moodData, triggerFetch = false) => {
   const [error, setError] = useState(null);
 
   const fetchInsight = useCallback(async () => {
-    // Only fetch if essential data (userId and moodEntries) is present
     if (!moodData || !moodData.userId || !Array.isArray(moodData.moodEntries)) {
       console.warn("useWellnessInsights: Essential mood data missing for AI insights. Skipping fetch.");
-      // You might want to set a specific error or message here if this is a critical case
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      // --- CRITICAL FIX: Pass moodData.userId directly to the API function ---
-      const aiInsight = await getWellnessInsights(moodData.userId); // Pass the userId directly
-      // --- END CRITICAL FIX ---
+      const aiInsight = await getWellnessInsights(moodData.userId); 
       setInsight(aiInsight);
     } catch (err) {
       console.error("Failed to fetch wellness insights:", err);
@@ -42,7 +38,6 @@ export const useWellnessInsights = (moodData, triggerFetch = false) => {
 
 export const useAICounselorChat = () => {
   const [chatHistory, setChatHistory] = useState([
-    // Add timestamp to initial message
     { role: 'assistant', content: "Hello! I'm here to listen and support you on your wellness journey. What's on your mind today?", timestamp: new Date() }
   ]);
   const [isTyping, setIsTyping] = useState(false);
@@ -52,16 +47,20 @@ export const useAICounselorChat = () => {
     if (!userMessage.trim()) return;
 
     setError(null);
-    // Add timestamp to user's message
     const newUserMessage = { role: 'user', content: userMessage, timestamp: new Date() };
 
     setChatHistory((prevHistory) => [...prevHistory, newUserMessage]);
     setIsTyping(true);
 
     try {
-      const aiResponseContent = await getAICounselorResponse([...chatHistory, newUserMessage]);
+      // --- FIX IS HERE: Changed 'model' to 'assistant' for AI responses ---
+      const formattedChatHistory = [...chatHistory, newUserMessage].map(msg => ({
+          role: msg.role === 'assistant' ? 'assistant' : 'user', // Map 'assistant' to 'assistant'
+          parts: [{ text: msg.content }] // Assuming backend expects 'parts' with 'text'
+      }));
 
-      // Add timestamp to AI's response
+      const aiResponseContent = await getAICounselorResponse(formattedChatHistory);
+
       const newAssistantMessage = { role: 'assistant', content: aiResponseContent, timestamp: new Date() };
 
       setChatHistory((prevHistory) => [...prevHistory, newAssistantMessage]);
@@ -69,8 +68,10 @@ export const useAICounselorChat = () => {
     } catch (err) {
       console.error("Error sending message to AI Counselor:", err);
       setError("Failed to get a response from the counselor. Please try again.");
-      // Filter based on unique timestamp if possible, otherwise rely on content/role
-      setChatHistory((prevHistory) => prevHistory.filter(msg => !(msg.role === 'user' && msg.content === userMessage && msg.timestamp?.getTime() === newUserMessage.timestamp?.getTime())));
+      setChatHistory((prevHistory) => [
+        ...prevHistory,
+        { role: 'assistant', content: "I'm sorry, I'm having trouble connecting right now. Please try again.", timestamp: new Date() }
+      ]);
     } finally {
       setIsTyping(false);
     }
@@ -78,7 +79,6 @@ export const useAICounselorChat = () => {
 
   const clearChat = useCallback(() => {
     setChatHistory([
-      // Add timestamp to initial message when clearing
       { role: 'assistant', content: "Hello! I'm here to listen and support you on your wellness journey. What's on your mind today?", timestamp: new Date() }
     ]);
     setError(null);
@@ -87,7 +87,7 @@ export const useAICounselorChat = () => {
   return { chatHistory, isTyping, error, sendMessage, clearChat };
 };
 
-// --- Course Outline Generator Hook (For Educators) ---
+// ... (rest of your useAi.js file with other hooks)
 export const useCourseOutlineGenerator = () => {
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState('Beginner');
@@ -138,7 +138,6 @@ export const useCourseOutlineGenerator = () => {
   };
 };
 
-// --- Course Description Writer Hook (For Educators) ---
 export const useCourseDescriptionWriter = () => {
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState('Beginner');
@@ -189,7 +188,6 @@ export const useCourseDescriptionWriter = () => {
   };
 };
 
-// --- Course Thumbnail Idea Creator Hook (For Educators) ---
 export const useCourseThumbnailIdeaCreator = () => {
   const [topic, setTopic] = useState('');
   const [styleTone, setStyleTone] = useState('Creative');
@@ -209,13 +207,11 @@ export const useCourseThumbnailIdeaCreator = () => {
     setThumbnailImage(null); // Clear previous image
 
     try {
-      // It now returns a base64 image URL (e.g., "data:image/png;base64,...")
       const generatedImage = await createCourseThumbnailImage({
         topic,
         styleTone,
         additionalContext,
       });
-      // Set the base64 image URL to the state
       setThumbnailImage(generatedImage); 
     } catch (err) {
       console.error('Failed to create thumbnail image:', err);
@@ -232,12 +228,12 @@ export const useCourseThumbnailIdeaCreator = () => {
     thumbnailImage, isLoading, error, createThumbnailIdea
   };
 };
-// --- Quiz & Assessment Builder Hook (For Educators) ---
+
 export const useQuizAssessmentBuilder = () => {
   const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState('Beginner');
   const [numQuestions, setNumQuestions] = useState('');
-  const [questionTypes, setQuestionTypes] = useState([]); // e.g., ['multiple-choice', 'true-false']
+  const [questionTypes, setQuestionTypes] = useState([]); 
   const [additionalContext, setAdditionalContext] = useState('');
   const [quiz, setQuiz] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -257,7 +253,7 @@ export const useQuizAssessmentBuilder = () => {
       const generatedQuiz = await buildQuizAssessment({
         topic,
         difficulty,
-        numQuestions: parseInt(numQuestions), // Ensure number type
+        numQuestions: parseInt(numQuestions), 
         questionTypes,
         additionalContext,
       });
@@ -270,7 +266,6 @@ export const useQuizAssessmentBuilder = () => {
     }
   }, [topic, difficulty, numQuestions, questionTypes, additionalContext]);
 
-  // Helper for checkbox/multi-select question types
   const handleQuestionTypeChange = useCallback((type) => {
     setQuestionTypes((prevTypes) =>
       prevTypes.includes(type)

@@ -270,13 +270,8 @@ export default function EducatorDashboard() {
                                             </div>
 
                                             <div className="flex gap-2">
-                                                <Link to={createPageUrl("CourseDetail", { id: course._id })}>
-                                                    <Button variant="outline" size="sm">
-                                                        <Eye className="w-4 h-4 mr-2" />
-                                                        View
-                                                    </Button>
-                                                </Link>
-                                                <Link to={createPageUrl("EditCourse", { id: course._id })}>
+                                               
+                                                <Link to={createPageUrl("CreateCourse", { id: course._id })}>
                                                     <Button variant="outline" size="sm">
                                                         <Edit className="w-4 h-4 mr-2" />
                                                         Edit

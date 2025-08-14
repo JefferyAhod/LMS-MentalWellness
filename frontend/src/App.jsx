@@ -21,6 +21,7 @@ import Analytics from "./pages/Educator/Analytics";
 import CoursesPage from "./pages/CoursesPage";
 import Wellness from "./pages/Student/Wellness";
 import NotFoundPage from "./pages/NotFoundPage.jsx";
+import CounselorChat from "./components/CounselorChat.jsx";
 
 // A simple PrivateRoute component to handle redirection logic
 const PrivateRoute = ({ children, allowedRoles = [], requiresOnboarding = false }) => {
@@ -110,6 +111,8 @@ function App() {
     <Route path='/Register' element={<Signup />} />
     <Route path='/Login' element={<Login />} />
     <Route path='/Courses' element={<CoursesPage />} />
+        <Route path='/ai' element={<CounselorChat />} />
+
 
     {/* Onboarding Routes - accessible only if not onboarded and authenticated */}
     <Route path="/StudentOnboarding" element={

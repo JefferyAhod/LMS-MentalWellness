@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useAuth } from "@/context/AuthContext.jsx"; // Ensure .jsx extension for AuthContext
+import { useAuth } from "@/context/AuthContext.jsx";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,8 +11,7 @@ import { FcGoogle } from "react-icons/fc";
 import { AtSign, Lock } from "lucide-react";
 
 export default function Login() {
-  // Get login function, loading state, error, and user object from AuthContext
-  const { login, loading, error, user } = useAuth();
+  const { login, loading, error } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -20,7 +19,7 @@ export default function Login() {
     password: "",
   });
 
-  const [showError, setShowError] = useState(false); // State to control error message visibility
+  const [showError, setShowError] = useState(false);
 
   const handleChange = (e) => {
     setFormData((prev) => ({
@@ -34,29 +33,21 @@ export default function Login() {
 
     if (!formData.email || !formData.password) {
       toast.error("Please enter both email and password");
-      setShowError(true); // Show error if fields are empty
+      setShowError(true);
       return;
     }
 
-    // Attempt to log in
     const result = await login(formData);
 
     if (result.success) {
       toast.success("Logged in successfully!");
 
-      // Access the user object directly from the AuthContext's state
-      // after a successful login, as it would have been updated by `setUser` in AuthContext.
-      // We can also use `result.user` if your `login` function in AuthContext returns it.
-      // Assuming `user` from `useAuth()` will be updated by the `login` function's `setUser` call.
-      const loggedInUser = user; // Use the user from context, which should be updated
+      const loggedInUser = result.user; // Directly use the user object returned by AuthContext's login
 
-      // Fallback in case user from context isn't immediately updated
-      // (though it should be if login() calls setUser correctly)
-      const userRole = loggedInUser?.role || 'student'; // Default to student if role is missing
+      const userRole = loggedInUser?.role || 'student';
       const onboardingStatus = loggedInUser?.onboardingCompleted;
 
       if (onboardingStatus === false) {
-        // User is logged in but onboarding is not complete
         if (userRole === "student") {
           navigate("/StudentOnboarding");
         } else if (userRole === "educator") {
@@ -64,24 +55,20 @@ export default function Login() {
         } else if (userRole === "admin") {
           navigate("/AdminPanel");
         } else {
-          // Fallback for unexpected roles
           navigate("/Home");
         }
       } else {
-        // User is logged in and onboarding is complete
         if (userRole === "student") {
-          navigate("/StudentDashboard"); // Navigate to student dashboard
+          navigate("/StudentDashboard");
         } else if (userRole === "educator") {
-          navigate("/EducatorDashboard"); // Navigate to educator dashboard
+          navigate("/EducatorDashboard");
         } else {
-          // Fallback for unexpected roles
           navigate("/Home");
         }
       }
     } else {
-      // Login failed, error message already set by AuthContext
-      setShowError(true); // Show the error message from AuthContext
-      toast.error(error || "Login failed. Please try again."); // Display toast with error
+      setShowError(true);
+      toast.error(error || "Login failed. Please try again.");
     }
   };
 
@@ -152,7 +139,6 @@ export default function Login() {
               </div>
             </div>
 
-            {/* Display error from AuthContext if present and showError is true */}
             {error && showError && (
               <div className="bg-red-100 text-red-700 text-sm rounded-md px-4 py-2 text-center border border-red-300">
                 {error}
@@ -171,7 +157,7 @@ export default function Login() {
               <a href="#" className="hover:underline">
                 Forgot password?
               </a>
-              <a href="/signup" className="hover:underline">
+              <a href="/register" className="hover:underline">
                 Sign up
               </a>
             </div>

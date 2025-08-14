@@ -4,6 +4,7 @@ import asyncHandler from "express-async-handler";
 import User from "../models/UserModel.js";
 import generateToken from '../utils/generateToken.js'
 import { sendEmail } from "../utils/sendEmail.js";
+import { logActivity } from "../utils/logActivity.js";
 
 // Register
 export const register = asyncHandler(async (req, res) => {
@@ -49,7 +50,8 @@ export const register = asyncHandler(async (req, res) => {
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
-    
+     // Log activity
+    await logActivity(user._id, "Register", `Created account as ${role}`);
         res.status(201).json(newUser);
        
     } else{
@@ -80,10 +82,12 @@ export const login = asyncHandler(async (req, res) => {
       email: user.email,
       role: user.role,
       status: user.status,
-      onboardingCompleted: user.onboardingCompleted, // Include this in the response
+      onboardingCompleted: user.onboardingCompleted, 
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+        // Log activity
+    await logActivity(user._id, "Login", "Logged into account");
     res.status(200).json(loggedInUser);
     } else{
         res.status(404);
@@ -122,6 +126,8 @@ export const completeOnboarding = asyncHandler(async (req, res) => {
 
     try {
       const updatedUser = await user.save();
+      // Log activity
+      await logActivity(req.user._id, "Onboarding", "Completed onboarding process");
       res.json({
         _id: updatedUser._id,
         name: updatedUser.name,
@@ -156,6 +162,9 @@ export const logout = asyncHandler(async (req, res) => {
         httpOnly:true,
         expires: new Date(0)
     })
+        // Log activity
+    await logActivity(req.user, "LOGOUT", {message: "User logged out"});
+    
     res.status(200).json({ message: 'Logged out Successfully'});
 
 });

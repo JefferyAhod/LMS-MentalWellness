@@ -39,41 +39,43 @@ export default function Signup() {
 
     const result = await register(formData);
 
-   if (result.success) {
-      toast.success("Logged in successfully!");
+    if (result.success) {
+      toast.success("Account created successfully!");
 
-      const loggedInUser = user; // 
+      const loggedInUser = result.user;
 
-      const userRole = loggedInUser?.role || 'student'; 
-      const onboardingStatus = loggedInUser?.onboardingCompleted;
+      // === CRITICAL FIX FOR RACE CONDITION ===
+      // Introduce a small delay to allow the browser to properly set the cookie
+      // and for AuthContext's isAuthenticated state to fully propagate.
+      setTimeout(() => {
+        const userRole = loggedInUser?.role || 'student';
+        const onboardingStatus = loggedInUser?.onboardingCompleted;
 
-      if (onboardingStatus === false) {
-        // User is logged in but onboarding is not complete
-        if (userRole === "student") {
-          navigate("/StudentOnboarding");
-        } else if (userRole === "educator") {
-          navigate("/EducatorOnboarding");
-        } else if (userRole === "admin") {
-          navigate("/AdminPanel");
+        if (onboardingStatus === false) {
+          if (userRole === "student") {
+            navigate("/StudentOnboarding");
+          } else if (userRole === "educator") {
+            navigate("/EducatorOnboarding");
+          } else if (userRole === "admin") {
+            navigate("/AdminPanel");
+          } else {
+            navigate("/Home");
+          }
         } else {
-          // Fallback for unexpected roles
-          navigate("/Home");
+          if (userRole === "student") {
+            navigate("/StudentDashboard");
+          } else if (userRole === "educator") {
+            navigate("/EducatorDashboard");
+          } else {
+            navigate("/Home");
+          }
         }
-      } else {
-        // User is logged in and onboarding is complete
-        if (userRole === "student") {
-          navigate("/StudentDashboard"); // Navigate to student dashboard
-        } else if (userRole === "educator") {
-          navigate("/EducatorDashboard"); // Navigate to educator dashboard
-        } else {
-          // Fallback for unexpected roles
-          navigate("/Home");
-        }
-      }
+      }, 50); // 50ms delay (adjust if needed)
+      // =====================================
+
     } else {
-      // Login failed, error message already set by AuthContext
-      setShowError(true); // Show the error message from AuthContext
-      toast.error(error || "Login failed. Please try again."); // Display toast with error
+      setShowError(true);
+      toast.error(error || "Registration failed. Please try again.");
     }
   };
 

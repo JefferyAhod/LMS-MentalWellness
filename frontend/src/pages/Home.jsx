@@ -11,16 +11,18 @@ import HeroSection from "../components/HeroSection";
 import StatsSection from "../components/StatsSection";
 
 import { useFetchCourses } from '../hooks/useFetchCourses';
-import { useFetchRecommendedCourses } from '../hooks/useFetchRecommendedCourses';
-import useUser from "../hooks/useUser";
+import { useFetchRecommendedCourses } from '../hooks/useFetchRecommendedCourses'; // This hook will useAuth internally
+import { useAuth } from '@/context/AuthContext'; // Import useAuth directly
 
 export default function Home() {
     const navigate = useNavigate();
-    const { user, loading: userLoading, error: userError } = useUser();
+    // Get user, isAuthenticated, and AuthContext's initial loading state
+    const { user, isAuthenticated, loading: authContextLoading } = useAuth();
 
     const [searchQuery, setSearchQuery] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("all");
 
+    // All courses fetch (public, not directly dependent on authenticated user for initial load)
     const {
         courses,
         isLoading: allCoursesLoading,
@@ -34,13 +36,14 @@ export default function Home() {
         limit: 6
     });
 
+    // CRITICAL: Call useFetchRecommendedCourses. It will internally manage its fetch based on AuthContext's state.
     const {
         recommendedCourses,
         isLoading: recommendedCoursesLoading,
         error: recommendedCoursesError
-    } = useFetchRecommendedCourses(3);
+    } = useFetchRecommendedCourses(selectedCategory, 3); // Pass category and limit; auth logic is inside the hook
 
-  const categories = [
+    const categories = [
         { id: "all", name: "All Courses" },
         { id: "programming", name: "Programming" },
         { id: "design", name: "Design" },
@@ -62,8 +65,10 @@ export default function Home() {
         navigate(createPageUrl("Login"));
     };
 
-    const overallLoading = userLoading || recommendedCoursesLoading;
-    const overallError = userError || recommendedCoursesError;
+    // Overall loading state for the entire page
+    // This will show a loader until AuthContext is done loading AND recommended courses are fetched.
+    const overallLoading = authContextLoading || recommendedCoursesLoading || allCoursesLoading;
+    const overallError = allCoursesError || recommendedCoursesError;
 
     if (overallLoading) {
         return (
@@ -84,6 +89,10 @@ export default function Home() {
             </div>
         );
     }
+
+    // Determine if the user is a student (or unauthenticated for general browsing)
+    // This now correctly relies on `isAuthenticated` from AuthContext
+    const canViewCourseDetails = !isAuthenticated || user?.role === 'student';
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -147,9 +156,13 @@ export default function Home() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                             {recommendedCourses.map((course) => (
-                                <Link key={course._id} to={createPageUrl("CourseDetail", { id: course._id })}>
-                                    <CourseCard course={course} />
-                                </Link>
+                                canViewCourseDetails ? (
+                                    <Link key={course._id} to={createPageUrl("CourseDetail", { id: course._id })}>
+                                        <CourseCard course={course} />
+                                    </Link>
+                                ) : (
+                                    <CourseCard key={course._id} course={course} />
+                                )
                             ))}
                         </div>
                     </div>

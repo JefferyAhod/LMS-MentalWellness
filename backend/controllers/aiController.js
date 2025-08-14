@@ -1,6 +1,5 @@
 // backend/controllers/wellnessAiController.js
 import asyncHandler from 'express-async-handler';
-// Import the generic chat completion function from your AI service
 import { getChatCompletion, generateImageWithImagen } from '../services/aiService.js';
 import MoodEntry from '../models/MoodEntryModel.js';
 
@@ -31,31 +30,22 @@ const calculateWeeklyAverageMoodScore = (entries) => {
 // @route   POST /api/ai/insights
 // @access  Private (requires authentication)
 export const getWellnessInsights = asyncHandler(async (req, res) => {
-  // Assuming req.user is populated by your authentication middleware (e.g., `protect` middleware)
-  const userId = req.user._id; // Get the authenticated user's ID
+  const userId = req.user._id;
 
-  // Fetch all mood entries for the authenticated user from the database
-  // Sort by date descending to get recent entries easily
   const allMoodEntries = await MoodEntry.find({ user: userId }).sort({ date: -1 });
 
-  // Determine today's mood from the fetched data
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Normalize today's date to start of day
+  today.setHours(0, 0, 0, 0);
   const todaysMood = allMoodEntries.find(entry => {
     const entryDate = new Date(entry.date);
-    entryDate.setHours(0, 0, 0, 0); // Normalize entry date
+    entryDate.setHours(0, 0, 0, 0);
     return entryDate.getTime() === today.getTime();
   });
 
-  // Calculate weekly average mood score from fetched data
   const weeklyAverage = calculateWeeklyAverageMoodScore(allMoodEntries);
 
-  // Use a subset of recent mood entries for the prompt if there are many,
-  // to keep the prompt length manageable and relevant to recent trends.
-  // For example, use the last 10 entries for detailed context.
   const recentMoodEntriesForPrompt = allMoodEntries.slice(0, 10);
 
-  // Construct a comprehensive prompt for the AI model as a system message
   const systemPromptContent = `You are an empathetic and insightful AI assistant specializing in mental wellness.
   Analyze the following mood data for user ID ${userId}:
   Today's Mood: ${todaysMood ? `${todaysMood.mood} (Notes: ${todaysMood.notes || 'N/A'})` : 'Not set'}
@@ -69,41 +59,71 @@ export const getWellnessInsights = asyncHandler(async (req, res) => {
     { role: "system", content: systemPromptContent },
   ];
 
-  // Call the AI service to get the completion
   const insight = await getChatCompletion(messages, 0.7);
 
   res.json({ success: true, insight });
 });
 
 
-
 // @desc    Get AI counselor response
 // @route   POST /api/ai/counselor
 // @access  Private (should be)
 export const getAICounselorResponse = asyncHandler(async (req, res) => {
-  // chatHistory should be an array of messages compatible with the AI API's format:
-  // [{ role: 'user', content: '...' }, { role: 'assistant', content: '...' }]
-  const { chatHistory } = req.body;
+  const { chatHistory } = req.body; // chatHistory comes as [{ role: 'assistant', content: '...' }, { role: 'user', content: '...' }]
+ const userName = req.user ? req.user.name : 'the student on this app'; 
+ const SYSTEM_INSTRUCTION_CONTENT = `You are a supportive, empathetic, and non-judgmental AI wellness counselor, specifically tailored to assist students.
+  Treat the user you are conversing with as a student seeking support for their mental wellness.
+  Your purpose is to listen, offer gentle guidance, encourage self-reflection, and provide general coping strategies.
+  You should never diagnose, prescribe, or give medical advice.
+  Keep responses concise and focused on well-being.
+  Acknowledge the user's last message before responding.
+  Always address the user by their name, which is "${userName}", at appropriate points in the conversation. If the name is unavailable (i.e., "${userName}" is "the student on this app"), use generic supportive language.
+  You should always use positive and constructive language. Avoid any phrasing that could be interpreted as harmful or violent. Focus on empowering the user to manage their feelings and situations.`;
 
-  // Add a system instruction to guide the AI's behavior
-  const systemInstruction = {
-    role: "system",
-    content: "You are a supportive, empathetic, and non-judgmental AI wellness counselor. Your purpose is to listen, offer gentle guidance, encourage self-reflection, and provide general coping strategies. You should never diagnose, prescribe, or give medical advice. Keep responses concise and focused on well-being. Acknowledge the user's last message before responding."
-  };
 
-  // Combine system instruction with the provided chat history
-  const messages = [systemInstruction, ...chatHistory];
+  // Start building messages for the AI. The system instruction always comes first.
+  const messagesForAI = [{ role: "system", content: SYSTEM_INSTRUCTION_CONTENT }];
+
+  // Iterate through the chat history from the frontend and format for OpenAI-compatible API
+  for (const msg of chatHistory) {
+    let content = '';
+
+    // Robustly extract content: check 'content' property first, then 'parts[0].text'
+    if (msg.content && typeof msg.content === 'string') {
+      content = msg.content;
+    } else if (msg.parts && Array.isArray(msg.parts) && msg.parts.length > 0 && typeof msg.parts[0].text === 'string') {
+      content = msg.parts[0].text;
+    }
+
+    // Skip messages if content is empty after extraction
+    if (!content.trim()) {
+      console.warn(`Skipping invalid or empty chat history entry during content extraction: ${JSON.stringify(msg)}`);
+      continue;
+    }
+
+    // Map 'assistant' role from frontend to 'assistant' for OpenAI-compatible API
+    // 'user' role remains 'user'
+    const aiApiRole = msg.role === 'assistant' ? 'assistant' : 'user';
+    
+    messagesForAI.push({ role: aiApiRole, content: content });
+  }
+
+
+  // If there are no valid user messages after processing, return an error
+  // This prevents sending empty 'contents' to the AI API.
+  // Check if messagesForAI only contains the system instruction and no actual chat turns
+  if (messagesForAI.length <= 1) { // If only system instruction or no valid chat messages
+      console.error('No valid user messages found in chatHistory to send to GitHub AI API.');
+      return res.status(400).json({ success: false, error: 'No valid message to process.' });
+  }
 
   // Call the AI service to get the completion
-  // We use a temperature of 0.8 for a slightly more conversational feel
-  const aiResponse = await getChatCompletion(messages, 0.8);
+  const aiResponse = await getChatCompletion(messagesForAI, 0.8);
 
   res.json({ success: true, response: aiResponse });
 });
 
-// @desc    Generate a course outline
-// @route   POST /api/ai/generate-course-outline
-// @access  Private (or public, depending on your app's design)
+// ... (rest of your aiController.js file with other functions)
 export const generateCourseOutline = asyncHandler(async (req, res) => {
     const { topic, difficulty, duration, audience, styleTone, additionalContext } = req.body;
 
@@ -123,9 +143,8 @@ export const generateCourseOutline = asyncHandler(async (req, res) => {
     const messages = [{ role: "user", content: prompt }];
 
     try {
-        const jsonStringOutline = await getChatCompletion(messages, 0.7); // Use a moderate temperature
+        const jsonStringOutline = await getChatCompletion(messages, 0.7);
 
-        // Attempt to parse the JSON string received from the AI
         const parsedOutline = JSON.parse(jsonStringOutline);
         res.json({ success: true, outline: parsedOutline });
     } catch (error) {
@@ -134,9 +153,6 @@ export const generateCourseOutline = asyncHandler(async (req, res) => {
     }
 });
 
-// @desc    Write a course description
-// @route   POST /api/ai/write-course-description
-// @access  Private (or public)
 export const writeCourseDescription = asyncHandler(async (req, res) => {
     const { topic, difficulty, duration, audience, styleTone, additionalContext } = req.body;
 
@@ -156,7 +172,7 @@ export const writeCourseDescription = asyncHandler(async (req, res) => {
     const messages = [{ role: "user", content: prompt }];
 
     try {
-        const description = await getChatCompletion(messages, 0.8); // Higher temperature for more creativity
+        const description = await getChatCompletion(messages, 0.8);
         res.json({ success: true, description });
     } catch (error) {
         console.error('Error writing course description:', error);
@@ -164,11 +180,6 @@ export const writeCourseDescription = asyncHandler(async (req, res) => {
     }
 });
 
-/**
- * @desc    Generates a course thumbnail image using Imagen 4.0 based on a textual prompt.
- * @route   POST /api/ai/create-course-thumbnail-image
- * @access  Private (e.g., authenticated educator)
- */
 export const createCourseThumbnailImage = async (req, res) => {
     const { topic, styleTone, additionalContext } = req.body;
 
@@ -176,8 +187,6 @@ export const createCourseThumbnailImage = async (req, res) => {
         return res.status(400).json({ message: 'Course Topic is required to generate a thumbnail image.' });
     }
 
-    // Construct the detailed prompt for the image generation model
-    // This prompt will be sent to the generateImageWithImagen service
     let imagePrompt = `Generate a visually appealing course thumbnail for the topic: "${topic}".`;
     if (styleTone) {
         imagePrompt += ` The style/tone should be ${styleTone}.`;
@@ -188,10 +197,8 @@ export const createCourseThumbnailImage = async (req, res) => {
     imagePrompt += ` Ensure it's suitable for a digital learning platform, with clear, concise visuals.`;
 
     try {
-        // Call the new service function to generate the image
         const imageUrl = await generateImageWithImagen(imagePrompt);
 
-        // Send the base64-encoded image URL back to the frontend
         res.status(200).json({ thumbnailImage: imageUrl });
 
     } catch (error) {
@@ -200,9 +207,6 @@ export const createCourseThumbnailImage = async (req, res) => {
     }
 };
 
-// @desc    Build a quiz or assessment
-// @route   POST /api/ai/build-quiz-assessment
-// @access  Private (or public)
 export const buildQuizAssessment = asyncHandler(async (req, res) => {
     const { topic, difficulty, numQuestions, questionTypes, additionalContext } = req.body;
 
@@ -210,8 +214,6 @@ export const buildQuizAssessment = asyncHandler(async (req, res) => {
         return res.status(400).json({ error: 'Topic/Subject and Number of Questions are required.' });
     }
 
-    // Construct a detailed prompt for the AI, now focusing on the content,
-    // as the format will be enforced by response_format.
     let prompt = `Generate a quiz on the topic of "${topic}".\n`;
     prompt += `Difficulty: ${difficulty}.\n`;
     prompt += `Number of questions: ${numQuestions}.\n`;
@@ -226,7 +228,6 @@ export const buildQuizAssessment = asyncHandler(async (req, res) => {
         prompt += `Additional context/specific concepts to cover: ${additionalContext}.\n`;
     }
 
-    // Explicitly instruct the AI to provide output in a specific JSON format
     prompt += `\nProvide the quiz as a JSON object with the following structure. Ensure all top-level keys (multiple_choice, true_false, short_answer) are present, even if their arrays are empty. For multiple choice, 'correct_answer' should be the 0-indexed number of the correct option. For true/false, 'correct_answer' should be a boolean.
 {
   "multiple_choice": [
@@ -254,7 +255,6 @@ export const buildQuizAssessment = asyncHandler(async (req, res) => {
 }`;
 
     try {
-        // Call getChatCompletion with the new responseFormat parameter
         const jsonStringQuiz = await getChatCompletion(
             [{ role: "user", content: prompt }],
             0.7, // temperature
@@ -263,7 +263,6 @@ export const buildQuizAssessment = asyncHandler(async (req, res) => {
             { type: "json_object" } // Request JSON object output
         );
 
-        // Attempt to parse the JSON string received from the AI
         const parsedQuiz = JSON.parse(jsonStringQuiz);
         res.json({ success: true, quiz: parsedQuiz });
     } catch (error) {

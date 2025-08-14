@@ -22,15 +22,15 @@ import {
 } from "lucide-react";
 
 // Custom Hooks
-import { useAuth } from '@/context/AuthContext'; // To get authentication status and user
-import { useFetchStudentDashboard } from '@/hooks/useFetchStudentDashboard'; // To fetch dashboard data
+import { useAuth } from '@/context/AuthContext';
+import { useFetchStudentDashboard } from '@/hooks/useFetchStudentDashboard';
 
 export default function StudentDashboard() {
     const navigate = useNavigate();
 
     // Fetch dashboard data using the custom hook
     const {
-        user: studentUser, // Renamed to studentUser to avoid conflict with 'user' from useAuth if used here
+        student: studentUser, // This is the userProfile from useFetchStudentDashboard
         enrolledCourses,
         completedCoursesCount,
         totalLearningHours,
@@ -45,19 +45,14 @@ export default function StudentDashboard() {
 
     // Effect to handle redirection if user is not authenticated or not a student
     useEffect(() => {
-        // Only act after authLoading is complete
         if (!authLoading) {
             if (!isAuthenticated) {
-                // Not authenticated, redirect to login
                 navigate(createPageUrl("Login"));
             } else if (authUser?.role !== "student") {
-                // Authenticated, but not a student, redirect to home or access denied page
                 navigate(createPageUrl("Home"));
             }
         }
     }, [isAuthenticated, authUser, authLoading, navigate]);
-
-    // --- Conditional Renderings for Loading/Error/Access ---
 
     // Overall loading state (auth check + data fetch)
     if (authLoading || isLoading) {
@@ -70,11 +65,7 @@ export default function StudentDashboard() {
     }
 
     // Handle authentication/role check after loading
-    // If not authenticated, useEffect above will handle redirection.
-    // This `if` primarily catches if `authUser` is available but not a student.
     if (!isAuthenticated || !authUser || authUser?.role !== "student") {
-        // This part might technically be unreachable if useEffect handles navigation,
-        // but it's a safe fallback for clarity or if navigation takes a moment.
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
                 <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg">
@@ -109,14 +100,15 @@ export default function StudentDashboard() {
         );
     }
 
-    // --- Main Dashboard Content ---
+    // Main Dashboard Content
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-                        Welcome back, {studentUser?.name || studentUser?.email || 'Student'}!
+                        {/* FIX 1: Display user's name (full_name or name) or fallback to email/Student */}
+                        Welcome back, {studentUser?.full_name || studentUser?.name || studentUser?.email || 'Student'}!
                     </h1>
                     <p className="text-gray-600 dark:text-gray-400">
                         Continue your learning journey and track your progress
@@ -124,7 +116,7 @@ export default function StudentDashboard() {
                 </div>
 
                 {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                     <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
@@ -149,17 +141,18 @@ export default function StudentDashboard() {
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0">
+                    {/* <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white border-0">
                         <CardContent className="p-6">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <p className="text-purple-100 text-sm">Learning Hours</p>
+                            
                                     <p className="text-3xl font-bold">{totalLearningHours}</p>
                                 </div>
                                 <Clock className="w-8 h-8 text-purple-200" />
                             </div>
                         </CardContent>
-                    </Card>
+                    </Card> */}
 
                     <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white border-0">
                         <CardContent className="p-6">
@@ -175,8 +168,8 @@ export default function StudentDashboard() {
                 </div>
 
                 {/* Quick Actions */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <Link to={createPageUrl("Courses")}> {/* Link to the All Courses page */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <Link to={createPageUrl("Courses")}>
                         <Card className="hover:shadow-lg transition-shadow cursor-pointer border-0 bg-white dark:bg-gray-800">
                             <CardContent className="p-6 text-center">
                                 <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -208,7 +201,7 @@ export default function StudentDashboard() {
                         </Card>
                     </Link>
 
-                    {authUser?.role === "educator" && ( // Check authUser.role from useAuth
+                    {authUser?.role === "educator" && (
                         <Link to={createPageUrl("EducatorDashboard")}>
                             <Card className="hover:shadow-lg transition-shadow cursor-pointer border-0 bg-white dark:bg-gray-800">
                                 <CardContent className="p-6 text-center">
@@ -233,7 +226,7 @@ export default function StudentDashboard() {
                         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                             Your Courses
                         </h2>
-                        <Link to={createPageUrl("Courses")}> {/* Link to All Courses page */}
+                        <Link to={createPageUrl("Courses")}>
                             <Button variant="outline">
                                 Browse More Courses
                             </Button>
@@ -263,7 +256,7 @@ export default function StudentDashboard() {
                                             <Badge variant="outline" className="text-xs">
                                                 {(course.category || '').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                                             </Badge>
-                                            {course.enrollment.isCompleted && ( // Use isCompleted from enrollment hook
+                                            {course.enrollment.isCompleted && (
                                                 <Badge className="bg-green-500 text-white text-xs">
                                                     <Award className="w-3 h-3 mr-1" />
                                                     Completed
@@ -276,7 +269,7 @@ export default function StudentDashboard() {
                                         </h3>
 
                                         <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
-                                            by {course.instructor_name || 'N/A'} {/* instructor_name might not be populated on course */}
+                                            by {course.instructor_name || 'N/A'}
                                         </p>
 
                                         <div className="mb-4">
@@ -307,7 +300,7 @@ export default function StudentDashboard() {
                             <p className="text-gray-600 dark:text-gray-400 mb-6">
                                 Start your learning journey by enrolling in a course
                             </p>
-                            <Link to={createPageUrl("Courses")}> {/* Link to All Courses page */}
+                            <Link to={createPageUrl("Courses")}>
                                 <Button>
                                     Browse Courses
                                 </Button>

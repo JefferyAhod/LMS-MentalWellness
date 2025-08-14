@@ -54,6 +54,24 @@ const studentProfileSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    activityHistory: [
+  {
+    course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
+    action: { type: String, enum: ["viewed", "enrolled", "completed", "rated"] },
+    timestamp: { type: Date, default: Date.now },
+    rating: { type: Number, min: 1, max: 5 }
+  }
+],
+preferredCategories: {
+  type: [String],
+  default: []
+},
+preferredLevels: {
+  type: [String],
+  enum: ["Beginner", "Intermediate", "Advanced"],
+  default: []
+}
+
   },
   { timestamps: true }
 );

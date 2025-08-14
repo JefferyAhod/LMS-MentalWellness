@@ -2,6 +2,7 @@ import asyncHandler from "express-async-handler";
 import StudentProfile from "../models/StudentProfileModel.js";
 import Enrollment from "../models/EnrollmentModel.js";
 import Course from "../models/CourseModel.js";
+import { logActivity } from "../utils/logActivity.js";
 
 // @desc    Get student profile
 // @route   GET /api/students/profile
@@ -98,6 +99,9 @@ export const enrollInCourse = asyncHandler(async (req, res) => {
     progress: 0,
   });
 
+        // Log activity
+  await logActivity(req.user._id, "Enroll", `Enrolled in ${course.title}`);
+
   res.status(201).json(enrollment);
 });
 
@@ -107,16 +111,18 @@ export const enrollInCourse = asyncHandler(async (req, res) => {
 export const getLearningProgress = asyncHandler(async (req, res) => {
   const { courseId } = req.params;
   const enrollment = await Enrollment.findOne({
-    student: req.user._id,
+    student: req.user._id, // Assuming 'student' field in Enrollment model stores user._id
     course: courseId,
-  }).select("progress completedLectures isCompleted"); // Select new fields
+  }).select("progress completedLectures isCompleted");
 
   if (!enrollment) {
-    res.status(404);
-    throw new Error("Enrollment not found for this course and user.");
+    // If enrollment is not found, return 200 OK with isEnrolled: false
+    // This allows the frontend to distinguish between 'not enrolled' and a true server error.
+    return res.status(200).json({ isEnrolled: false, message: "User is not enrolled in this course." });
   }
 
-  res.status(200).json(enrollment);
+  // If enrolled, return isEnrolled: true and the enrollment details
+  res.status(200).json({ isEnrolled: true, enrollment });
 });
 
 // @desc    Mark a lecture as complete and update course progress
@@ -180,6 +186,9 @@ export const markLectureComplete = asyncHandler(async (req, res) => {
   }
 
   await enrollment.save();
+  
+        // Log activity
+      await logActivity(req.user._id, "Complete", `Completed ${course.title}`);
 
   res.status(200).json(enrollment); // Return the updated enrollment object
 });

@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from "react";
-// Removed direct imports for User and Course entities as they are handled by the hook
+import { useNavigate, Link } from "react-router-dom"; // Added useNavigate and Link for potential future use or existing links
+import { createPageUrl } from "@/utils"; // Assuming you have this utility
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { 
-  Users, 
-  BookOpen, 
-  Shield, 
+import {
+  Users,
+  BookOpen,
+  Shield,
   Search,
   Eye,
   Ban, // For disabling/enabling users
@@ -16,22 +18,29 @@ import {
   Crown,
   Loader2, // Added for loading spinner
   AlertCircle, // Added for error display
-  Trash2 // Added for delete buttons
+  Trash2, // Added for delete buttons
+  GraduationCap, // Icon for students/educators
+  UserPlus // Icon for pending educators
 } from "lucide-react";
+
+// Shadcn UI components for dropdowns
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 import { useAdminData } from "@/hooks/useAdminData"; // Import the new custom hook
 
 export default function AdminPanel() {
-  // Use the custom hook to manage all admin data and actions
-  const { 
-    users, 
-    courses, 
-    stats, 
+  const navigate = useNavigate(); // Initialize navigate hook
+
+  const {
+    users,
+    courses,
+    stats,
     loading, // Represents the loading state from the hook
     error,   // Represents any error from the hook
     currentUser, // Authenticated admin user from useAuth, exposed by useAdminData
     fetchAllAdminData, // Function to refetch all data
-    toggleUserRole, 
+    toggleUserRole,
     toggleCourseStatus,
     deleteUser, // Destructure deleteUser function
     deleteCourse // Destructure deleteCourse function
@@ -40,19 +49,36 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("users");
 
-  // Filtered lists based on search term
-  const filteredUsers = users.filter(user => 
-    (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (user.role || '').toLowerCase().includes(searchTerm.toLowerCase()) // Allow searching by role too
-  );
+  // NEW STATE FOR FILTERING
+  const [userRoleFilter, setUserRoleFilter] = useState("all"); // 'all', 'student', 'educator', 'admin'
+  const [courseStatusFilter, setCourseStatusFilter] = useState("all"); // 'all', 'Published', 'Pending Review', 'Draft'
 
-  const filteredCourses = courses.filter(course => 
-    (course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (course.educator?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) // Filter by educator's name
-  );
+  // Filtered lists based on search term AND new filters
+  const filteredUsers = users.filter(user => {
+    const matchesSearch =
+      (user.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesRole =
+      userRoleFilter === "all" || user.role === userRoleFilter;
 
-  // --- Conditional Rendering for Loading, Error, Access Denied ---
+    return matchesSearch && matchesRole;
+  });
+
+  const filteredCourses = courses.filter(course => {
+    const matchesSearch =
+      (course.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (course.educator?.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Use course.status directly as per clarification
+    const matchesStatus = 
+      courseStatusFilter === "all" || course.status === courseStatusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+
+  // --- Conditional Renderings for Loading, Error, Access Denied ---
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -68,7 +94,7 @@ export default function AdminPanel() {
         <AlertCircle className="h-16 w-16 text-red-500 mb-6" />
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">Error Loading Admin Data</h2>
         <p className="text-gray-600 dark:text-gray-400 text-center mb-8">
-          {error || "Something went wrong while fetching admin data. Please try again."}
+          {error.message || "Something went wrong while fetching admin data. Please try again."}
         </p>
         <Button onClick={fetchAllAdminData} variant="outline" className="px-6 py-3">
           <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Retry
@@ -78,7 +104,6 @@ export default function AdminPanel() {
   }
 
   // Access Denied if currentUser is not an admin.
-  // This is a crucial check as the PrivateRoute already handles redirection but this provides a fallback UI.
   if (!currentUser || currentUser.role !== 'admin') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -89,8 +114,7 @@ export default function AdminPanel() {
           <p className="text-gray-600 dark:text-gray-400">
             You don't have admin privileges to access this panel.
           </p>
-          {/* Optionally, add a button to navigate home */}
-          <Button onClick={() => window.location.href = '/Home'} className="mt-4">Go to Home</Button>
+          <Button onClick={() => navigate(createPageUrl("Home"))} className="mt-4">Go to Home</Button>
         </div>
       </div>
     );
@@ -115,7 +139,7 @@ export default function AdminPanel() {
         </div>
 
         {/* Stats Cards - Now use 'stats' from the hook */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white border-0">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -127,6 +151,32 @@ export default function AdminPanel() {
               </div>
             </CardContent>
           </Card>
+
+          {/* NEW STAT CARD: Students and Educators */}
+          <Card className="bg-gradient-to-r from-teal-500 to-cyan-600 text-white border-0">
+            <CardContent className="p-6">
+              <div className="flex flex-col space-y-2">
+                <p className="text-teal-100 text-sm">User Roles</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-teal-200" />
+                    <span className="text-xl font-bold">Students: {stats.students}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-5 h-5 text-teal-200" />
+                    <span className="text-xl font-bold">Educators: {stats.educators}</span>
+                  </div>
+                </div>
+                {stats.pendingEducators > 0 && (
+                  <div className="flex items-center gap-2 mt-2 text-yellow-100 text-sm">
+                    <UserPlus className="w-4 h-4" />
+                    <span>Pending Educators: {stats.pendingEducators}</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
 
           <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white border-0">
             <CardContent className="p-6">
@@ -159,29 +209,59 @@ export default function AdminPanel() {
         <div className="flex gap-4 mb-6">
           <Button
             variant={activeTab === "users" ? "default" : "outline"}
-            onClick={() => setActiveTab("users")}
+            onClick={() => { setActiveTab("users"); setSearchTerm(""); setUserRoleFilter("all"); }} // Reset filters on tab change
           >
             <Users className="w-4 h-4 mr-2" />
             Users
           </Button>
           <Button
             variant={activeTab === "courses" ? "default" : "outline"}
-            onClick={() => setActiveTab("courses")}
+            onClick={() => { setActiveTab("courses"); setSearchTerm(""); setCourseStatusFilter("all"); }} // Reset filters on tab change
           >
             <BookOpen className="w-4 h-4 mr-2" />
             Courses
           </Button>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <Input
-            placeholder={`Search ${activeTab === 'users' ? 'users by name or email' : 'courses by title or instructor'}`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10"
-          />
+        {/* Search and Filters */}
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Input
+              placeholder={`Search ${activeTab === 'users' ? 'users by name or email' : 'courses by title or instructor'}`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 w-full"
+            />
+          </div>
+
+          {activeTab === "users" && (
+            <Select onValueChange={setUserRoleFilter} value={userRoleFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by Role" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Roles</SelectItem>
+                <SelectItem value="student">Student</SelectItem>
+                <SelectItem value="educator">Educator</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+
+          {activeTab === "courses" && (
+            <Select onValueChange={setCourseStatusFilter} value={courseStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Filter by Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Published">Published</SelectItem>
+                <SelectItem value="Pending Review">Pending Review</SelectItem>
+                <SelectItem value="Draft">Draft</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Content */}
@@ -200,7 +280,7 @@ export default function AdminPanel() {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gray-200 dark:bg-gray-700 rounded-full flex items-center justify-center">
                           <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                            {user.name?.[0]?.toUpperCase() || "U"}
+                            {user.name?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || "U"}
                           </span>
                         </div>
                         <div>
@@ -213,28 +293,23 @@ export default function AdminPanel() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge 
+                        <Badge
                           className={
-                            user.role === 'admin' 
-                              ? "bg-purple-100 text-purple-800" 
-                              : "bg-gray-100 text-gray-800"
+                            user.role === 'admin'
+                              ? "bg-purple-100 text-purple-800"
+                              : user.role === 'educator' 
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-gray-100 text-gray-800"
                           }
                         >
-                          {user.role || 'user'}
+                          {user.role || 'student'} {/* Default to student if role is empty */}
                         </Badge>
-                        {/* Display Educator badge only if user is an educator and not already an admin */}
-                        {user.role ==='educator' && user.role !== 'admin' && ( 
-                          <Badge className="bg-blue-100 text-blue-800">
-                            Educator
-                          </Badge>
-                        )}
                         {/* Make Admin/Remove Admin Button */}
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => toggleUserRole(user._id, user.role)}
-                          // Disable action for current logged-in admin (currentUser._id)
-                          disabled={user._id === currentUser._id} 
+                          disabled={user._id === currentUser._id}
                         >
                           {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
                         </Button>
@@ -243,8 +318,7 @@ export default function AdminPanel() {
                           variant="destructive"
                           size="sm"
                           onClick={() => deleteUser(user._id)}
-                          // Disable delete for current logged-in admin
-                          disabled={user._id === currentUser._id} 
+                          disabled={user._id === currentUser._id}
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>
@@ -252,7 +326,7 @@ export default function AdminPanel() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-gray-600 dark:text-gray-400">No users found.</div>
+                  <div className="text-center py-8 text-gray-600 dark:text-gray-400">No users found matching filters.</div>
                 )}
               </div>
             ) : (
@@ -281,16 +355,18 @@ export default function AdminPanel() {
                             {course.title}
                           </p>
                           <p className="text-sm text-gray-600 dark:text-gray-400">
-                            by {course.educator?.name || 'Unknown'} • {course.total_enrollments || 0} students
+                            by {course.educator?.full_name || course.educator?.name || 'Unknown'} • {course.total_enrollments || 0} students
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge 
+                        <Badge
                           className={
                             course.status === 'Published'
-                              ? "bg-green-100 text-green-800" 
-                              : "bg-yellow-100 text-yellow-800"
+                              ? "bg-green-100 text-green-800"
+                              : course.status === 'Pending Review'
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800" // Assume Draft or other non-published is red/pending
                           }
                         >
                           {course.status}
@@ -298,13 +374,13 @@ export default function AdminPanel() {
                         <Badge variant="outline">
                           {course.price === 0 ? 'Free' : `$${course.price}`}
                         </Badge>
-                        {/* Publish/Unpublish Button */}
+                        {/* Publish/Unpublish Button - Reverted to use string enums */}
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => toggleCourseStatus(course._id, course.status === 'Published' ? 'Pending Review' : 'Published')} // Pass string status
                         >
-                          {course.status === 'Published' ? ( 
+                          {course.status === 'Published' ? (
                             <>
                               <XCircle className="w-4 h-4 mr-1" />
                               Unpublish
@@ -328,7 +404,7 @@ export default function AdminPanel() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-8 text-gray-600 dark:text-gray-400">No courses found.</div>
+                  <div className="text-center py-8 text-gray-600 dark:text-gray-400">No courses found matching filters.</div>
                 )}
               </div>
             )}
