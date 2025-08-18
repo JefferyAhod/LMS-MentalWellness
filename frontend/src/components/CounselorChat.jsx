@@ -1,14 +1,13 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from "react"; // Added forwardRef, useImperativeHandle
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Bot, Loader2 } from "lucide-react";
 
-// The import path is kept as '../hooks/useAi.js' as you confirmed its correctness.
-// If the error persists after thorough cache clearing, the issue is external to this file's code.
 import { useAICounselorChat } from '../hooks/useAi.js'; 
 
-export default function CounselorChat() {
+// MODIFIED: Wrap with forwardRef to expose functions
+const CounselorChat = forwardRef((props, ref) => {
   const { 
     chatHistory, 
     isTyping, 
@@ -20,10 +19,18 @@ export default function CounselorChat() {
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef(null); 
 
-  useEffect(() => {
-    // Scroll to bottom whenever chatHistory or isTyping changes
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatHistory, isTyping]);
+  // NEW: Expose sendMessage via useImperativeHandle
+  useImperativeHandle(ref, () => ({
+    sendMessage: (message) => {
+      // This allows parent components to call sendMessage directly
+      if (message && !isTyping) { // Only send if not currently typing
+        setNewMessage(message); // Set the message
+        sendMessage(message);    // And send it
+        setNewMessage(''); // Clear input after sending
+      }
+    }
+  }));
+
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
@@ -63,10 +70,7 @@ export default function CounselorChat() {
           </div>
         </CardHeader>
 
-        {/* CardContent is now explicitly flex-col to manage its children's heights */}
-        {/* ADDED: overflow-hidden to CardContent to ensure it contains its children properly */}
         <CardContent className="flex flex-col p-0 flex-grow overflow-hidden"> 
-          {/* Custom Scrollbar Styles (retained for visual slimness) */}
           <style>{`
             /* For Webkit-based browsers (Chrome, Safari, Edge, Brave) */
             .custom-scrollbar::-webkit-scrollbar {
@@ -91,8 +95,6 @@ export default function CounselorChat() {
             }
           `}</style>
           
-          {/* Chat Messages Container */}
-          {/* This div uses flex-grow and overflow-y-auto to create the scrollable area */}
           <div className="flex-grow overflow-y-auto p-4 space-y-4 custom-scrollbar"> 
             {chatHistory.map((message, index) => (
               <div
@@ -115,7 +117,6 @@ export default function CounselorChat() {
                 </div>
               </div>
             ))}
-            {/* Loading indicator for counselor response */}
             {isTyping && (
               <div className="flex justify-start">
                 <div className="max-w-[85%] rounded-xl p-3 bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm">
@@ -129,10 +130,9 @@ export default function CounselorChat() {
                 <p className="text-red-500 text-sm mt-2">{error}</p>
               </div>
             )}
-            <div ref={messagesEndRef} /> {/* Scroll target */}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Message Input - now outside the scrollable area but still within CardContent */}
           <div className="border-t border-gray-200 dark:border-gray-700 p-4 shrink-0"> 
             <div className="flex gap-3">
               <Input
@@ -163,4 +163,6 @@ export default function CounselorChat() {
       </Card>
     </div>
   );
-}
+});
+
+export default CounselorChat;

@@ -1,8 +1,4 @@
-import React, { useState, useEffect } from "react";
-// Removed direct entity imports, as data flow is now handled by hooks
-// import { User } from "@/entities/User";
-// import { MoodEntry } from "@/entities/MoodEntry";
-
+import React, { useState, useEffect, useRef } from "react"; // Added useRef
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,23 +9,20 @@ import {
   Meh,
   Activity,
   Brain,
-  MessageCircle, // Still used in the header, not for a button
+  MessageCircle, 
   TrendingUp,
   Calendar,
-  Lightbulb, // No longer directly used as Insight Card is removed
-  Loader2 // Still used for page loading
+  Lightbulb,
+  Loader2 
 } from "lucide-react";
 
 import MoodTracker from "../../components/MoodTracker";
-import WellnessTips from "../../components/WellnessTips";
-import CounselorChat from "../../components/CounselorChat"; // Import CounselorChat
+// import WellnessTips from "../../components/WellnessTips";
+import CounselorChat from "../../components/CounselorChat"; 
 import { Link } from "react-router-dom";
 
-// Import your custom hooks for authentication and mood tracking
 import { useAuth } from '@/context/AuthContext';
-import { useMoodTracker } from '../../hooks/useMoodTracker'; // Adjust path if necessary
-// Removed useWellnessInsights import as it's no longer needed
-// import { useWellnessInsights } from '../../hooks/useAi';
+import { useMoodTracker } from '../../hooks/useMoodTracker'; 
 
 export default function Wellness() {
   const { user, loading: authLoading } = useAuth();
@@ -40,23 +33,21 @@ export default function Wellness() {
     isSubmittingMood,
     submitMood,
     getMoodIcon,
-    getMoodColor
+    getMoodColor,
+    counselorMessageQueue, // NEW: Get the message queue
+    setCounselorMessageQueue // NEW: Get the setter for the message queue
   } = useMoodTracker();
 
-  // Removed useWellnessInsights hook call and its state variables
-  // const { 
-  //   insight, 
-  //   isLoading: isLoadingInsights, 
-  //   error: insightError,
-  //   fetchInsight 
-  // } = useWellnessInsights({ userId: user?.id, moodEntries });
+  // NEW: Ref to directly call sendMessage on CounselorChat's exposed function
+  const counselorChatRef = useRef();
 
-  // Removed useEffect for fetching insights
-  // useEffect(() => {
-  //   if (user && moodEntries.length > 0 && !insight && !isLoadingInsights) {
-  //       fetchInsight();
-  //   }
-  // }, [user, moodEntries, insight, isLoadingInsights, fetchInsight]);
+  // NEW: Effect to send message to counselor chat when queue is not null
+  useEffect(() => {
+    if (counselorMessageQueue && counselorChatRef.current && counselorChatRef.current.sendMessage) {
+      counselorChatRef.current.sendMessage(counselorMessageQueue);
+      setCounselorMessageQueue(null); // Clear the queue after sending
+    }
+  }, [counselorMessageQueue, setCounselorMessageQueue]); // Depend on queue state
 
 
   const handleMoodSubmit = async (mood, notes) => {
@@ -167,46 +158,19 @@ export default function Wellness() {
         {/* Main Content Area: Flex Container for Left (Tracker/Tips) and Right (Chat) */}
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Section: Mood Tracker & Wellness Tips */}
-          {/* Reverted width to lg:col-span-2 as the insight card is gone, giving more space for tips/tracker */}
           <div className="flex-1 lg:col-span-2 space-y-6"> 
             <MoodTracker
               onMoodSubmit={handleMoodSubmit}
               todaysMood={todaysMood}
               isSubmittingMood={isSubmittingMood} 
             />
-            {/* AI Wellness Insight Card - REMOVED */}
-            {/* <Card className="shadow-lg border-0 bg-white dark:bg-gray-800">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-lg font-semibold flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5 text-yellow-500" /> AI Wellness Insight
-                </CardTitle>
-                {isLoadingInsights && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
-              </CardHeader>
-              <CardContent className="pt-2">
-                {insightError && (
-                  <p className="text-red-500 text-sm">{insightError}</p>
-                )}
-                {insight ? (
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    {insight}
-                  </p>
-                ) : (
-                  !isLoadingInsights && !insightError && (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Track your mood to get personalized insights on your well-being.
-                    </p>
-                  )
-                )
-                }
-              </CardContent>
-            </Card> */}
-            <WellnessTips />
+            {/* <WellnessTips userId={user?._id} moodEntries={moodEntries} />  */}
           </div>
 
           {/* Right Section: Embedded AI Counselor Chat */}
-          {/* This section now takes lg:w-1/3 again, as the left column is larger */}
           <div className="flex-1 lg:w-1/3"> 
-            <CounselorChat /> 
+            {/* NEW: Pass the ref to CounselorChat */}
+            <CounselorChat ref={counselorChatRef} /> 
           </div>
         </div>
 

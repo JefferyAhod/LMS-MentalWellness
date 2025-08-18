@@ -6,8 +6,6 @@ import {
   getMoodEntries,
   getTodaysMoodEntry,
   deleteMoodEntry,
-  // getWellnessInsights, // For future AI integration
-  // getAICounselorResponse // For future AI integration
 } from '@/api/moods';
 
 export const useMoodTracker = () => {
@@ -17,6 +15,9 @@ export const useMoodTracker = () => {
   const [isLoadingMoods, setIsLoadingMoods] = useState(true);
   const [moodError, setMoodError] = useState(null);
   const [isSubmittingMood, setIsSubmittingMood] = useState(false);
+
+  // NEW: State to hold a message to be sent to the counselor chat
+  const [counselorMessageQueue, setCounselorMessageQueue] = useState(null);
 
   // Helper function to get today's date in YYYY-MM-DD format
   const getTodayDateString = () => {
@@ -65,8 +66,18 @@ const fetchMoodData = useCallback(async () => {
     try {
       const updatedEntry = await createOrUpdateMoodEntry(mood, notes);
       toast.success(todaysMood ? "Mood entry updated!" : "Mood tracked for today!");
+      
       // Re-fetch all mood data to ensure lists are fresh
       await fetchMoodData();
+
+      // NEW: Prepare message for counselor chat
+      const moodLabel = mood.replace('_', ' ');
+      const message = todaysMood 
+        ? `I just updated my mood to "${moodLabel}" for today. My notes are: "${notes || 'None'}".`
+        : `I just tracked my mood as "${moodLabel}" for today. My notes are: "${notes || 'None'}".`;
+      
+      setCounselorMessageQueue(message); // Queue the message
+
       return updatedEntry;
     } catch (err) {
       console.error("Error submitting mood:", err);
@@ -136,6 +147,8 @@ const fetchMoodData = useCallback(async () => {
     removeMoodEntry,
     getMoodIcon,
     getMoodColor,
-    fetchMoodData 
+    fetchMoodData,
+    counselorMessageQueue, // NEW: Expose the message queue
+    setCounselorMessageQueue // NEW: Expose setter to clear the queue
   };
 };
